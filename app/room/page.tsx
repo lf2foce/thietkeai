@@ -4,7 +4,7 @@ import Link from "next/link";
 import { db } from "@/app/server/db";
 // import { getMyImages } from "~/server/queries";
 
-// export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 
 const mockUrls = [
     'https://utfs.io/f/1f9c567a-c1a0-4c48-af0c-30487810d0e2-dkiuwk.42.31.png',
@@ -19,21 +19,16 @@ const mockImages = mockUrls.map((url, index) => ({
 
 export default async function HomePage() {
 //   const images = await getMyImages();
-const posts = await db.query.images.findMany();
-console.log(posts);
+const images = await db.query.images.findMany();
+console.log(images);
   return (
     <main className="">
       <h1 className="text-2xl">Posts</h1>
       <div className="flex flex-wrap justify-center gap-4 p-4">
-        {posts.map((post) => (
-          <div key={post.id} className="flex h-48 w-48 flex-col">
-            
-            <div>{post.name}</div>
-          </div>
-        ))};
+        
 
-       {[...mockImages, ...mockImages, ...mockImages].map((image) => (
-        <div key={image.id} className="w-48 h-48 flex items-center justify-center bg-gray-200 rounded-lg">
+       {[...images, ...images, ...images].map((image, index) => (
+        <div key={image.id + '-' + index} className="w-48 h-48 flex items-center justify-center bg-gray-200 rounded-lg">
           <Link href={`/img/${image.id}`}>
             <img
               src={image.url}
@@ -43,6 +38,7 @@ console.log(posts);
               alt='image'
             />
           </Link>
+          <div>{image.name}</div>
           
         </div>
       ))}
