@@ -1,4 +1,5 @@
-// import { SignedIn, SignedOut } from "@clerk/nextjs";
+
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 // import Image from "next/image";
 // import Link from "next/link";
 import { db } from "@/app/server/db";
@@ -17,32 +18,42 @@ const mockImages = mockUrls.map((url, index) => ({
     url,
 }));
 
+async function Images() {
+    const images = await db.query.images.findMany();
+    // console.log(images);
+    return (
+        <div className="flex flex-wrap justify-center gap-4 p-4">
+        {images.map((image) => (
+            <div key={image.id} className="w-48 h-48 flex items-center justify-center">
+            <a href={`/img/${image.id}`}>
+                <img
+                src={image.url}
+                //   style={{ objectFit: "contain" }}
+                //   width={192}
+                //   height={192}
+                alt='image'
+                />
+            </a>
+            {/* <div>{image.name}</div> */}
+            </div>
+      ))}
+      </div>
+    );
+}
+
 export default async function HomePage() {
 //   const images = await getMyImages();
-const images = await db.query.images.findMany();
-console.log(images);
+
   return (
     <main className="">
-      <h1 className="text-2xl">Posts</h1>
-      <div className="flex flex-wrap justify-center gap-4 p-4">
-        
-
-       {[...images, ...images, ...images].map((image, index) => (
-        <div key={image.id + '-' + index} className="w-48 h-48 flex items-center justify-center bg-gray-200 rounded-lg">
-          <a href={`/img/${image.id}`}>
-            <img
-              src={image.url}
-            //   style={{ objectFit: "contain" }}
-            //   width={192}
-            //   height={192}
-              alt='image'
-            />
-          </a>
-          <div>{image.name}</div>
-          
-        </div>
-      ))}
-        
-        </div>
+        <SignedOut>
+            <div className='h-full w-full text-2xl'>
+                <h1>Sign in to view your images</h1>
+            </div>
+        </SignedOut>
+        <SignedIn>
+        <h1 className="text-2xl">Images</h1>
+        <Images />
+        </SignedIn>
       </main>
   )};
