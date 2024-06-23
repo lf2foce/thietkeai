@@ -1,6 +1,6 @@
 // import { SignedIn, SignedOut } from "@clerk/nextjs";
-import Image from "next/image";
-import Link from "next/link";
+// import Image from "next/image";
+// import Link from "next/link";
 import { db } from "@/app/server/db";
 // import { getMyImages } from "~/server/queries";
 
@@ -29,7 +29,7 @@ console.log(images);
 
        {[...images, ...images, ...images].map((image, index) => (
         <div key={image.id + '-' + index} className="w-48 h-48 flex items-center justify-center bg-gray-200 rounded-lg">
-          <Link href={`/img/${image.id}`}>
+          <a href={`/img/${image.id}`}>
             <img
               src={image.url}
             //   style={{ objectFit: "contain" }}
@@ -37,7 +37,7 @@ console.log(images);
             //   height={192}
               alt='image'
             />
-          </Link>
+          </a>
           <div>{image.name}</div>
           
         </div>
