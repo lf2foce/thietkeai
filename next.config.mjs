@@ -2,7 +2,11 @@
 
 const nextConfig = {
     images: {
-        remotePatterns: [{ hostname: "utfs.io" }],
+        remotePatterns: [
+            { hostname: "utfs.io" },
+            { hostname: 'replicate.delivery'},
+            { hostname: 'fngzth1bskhfpctb.public.blob.vercel-storage.com' }
+        ],
       },
     typescript: {
         ignoreBuildErrors: true,
