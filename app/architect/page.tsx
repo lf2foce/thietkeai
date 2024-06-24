@@ -3,102 +3,97 @@
 import Image from "next/image";
 import { UploadDropzone } from "@/utils/uploadthing";
 import { useState } from "react";
-import { roomType, rooms, themeType, themes } from "@/utils/dropdownTypes";
-import Link from "next/link";
-
+import { roomType, themeType } from "@/utils/dropdownTypes";
 
 export default function Page() {
     const [imageUrl, setImageUrl] = useState("");
-    //TA
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [theme, setTheme] = useState<themeType>("Modern");
     const [room, setRoom] = useState<roomType>("Living Room");
-    const [restoredImage, setRestoredImage] = useState("") //<string | null>(null);
-    const [restoredLoaded, setRestoredLoaded] = useState<boolean>(false);
-
-    //
+    const [restoredImage, setRestoredImage] = useState("");
 
     async function generatePhoto(fileUrl: string) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      setLoading(true);
-      const res = await fetch("/api/gen", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ imageUrl: fileUrl, theme, room }),
-      });
-    
-      let newPhoto = await res.json();
-      if (res.status !== 200) {
-        setError(newPhoto);
-      } else {
-        setRestoredImage(newPhoto[1]);
-      }
-      setTimeout(() => {
+        setLoading(true);
+        setRestoredImage("");  // Clear the old restored image
+        const res = await fetch("/api/gen", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ imageUrl: fileUrl, theme, room }),
+        });
+
+        let newPhoto = await res.json();
+        if (res.status !== 200) {
+            setError(newPhoto);
+        } else {
+            setRestoredImage(newPhoto[1]);
+        }
         setLoading(false);
-      }, 1300);
     }
 
-
     return (
-        <div className="max-w-3xl container items-center justify-center ">
+        <div className="max-w-3xl mx-auto p-4 items-center justify-center">
+            <h1 className="text-2xl font-bold text-center mb-4">Upload and Remodel Your Image</h1>
             <UploadDropzone
                 endpoint={"imageUploader"}
                 onClientUploadComplete={(res) => {
                     if (res?.[0].url) {
-                        console.log("Good job!. We did it!", res?.[0].url);
+                        console.log("Good job! We did it!", res?.[0].url);
                         setImageUrl(res?.[0].url);
-
-                        //TA add
-                        // setPhotoName(imageName);
-                        // setOriginalPhoto(imageUrl);
-                        console.log(res?.[0].url, '-------')
                         generatePhoto(res?.[0].url);
                     }
                 }}
                 onUploadError={(error: Error) => {
-                    console.error("Ooops something is wrong", error);
+                    console.error("Oops something is wrong", error);
                 }}
             />
-            <div className="text-xs text-muted-foreground mt-4">
-                16:9 aspect ratio recommended
-            </div>
 
             {imageUrl && (
-                <div>
-                    <div className="relative aspect-video mt-2">
+                <div className="mt-4 mx-auto">
+                    <Image
+                        alt="Uploaded"
+                        className="object-cover rounded-md"
+                        src={imageUrl}
+                        layout="responsive"
+                        width={100}
+                        height={100}
+                    />
+                </div>
+            )}
+
+            {loading && (
+                <div className="flex justify-center items-center mt-4">
+                    <div className="text-center text-sm text-muted-foreground">
+                        Processing your image...
+                    </div>
+                </div>
+            )}
+
+            {restoredImage && !loading && (
+                <div className="text-center mt-4">
+                    <div className="text-sm text-muted-foreground">
+                        Here is your remodeled <b>{room.toLowerCase()}</b> in the <b>{theme.toLowerCase()}</b> theme!
+                    </div>
+                    <div className="relative mt-4 mx-auto">
                         <Image
-                            alt="Upload"
-                            fill
+                            alt="Restored Photo"
+                            src={restoredImage}
                             className="object-cover rounded-md"
-                            src={imageUrl}
+                            layout="responsive"
+                            width={100}
+                            height={100}
                         />
                     </div>
                 </div>
             )}
-            {/* <Suspense fallback={<CardSkeleton />}> */}
-              {restoredImage && (
-                <div className="text-xs text-muted-foreground mt-4">
-                  Here is your remodeled <b>{room.toLowerCase()}</b> in the{" "}
-                  <b>{theme.toLowerCase()}</b> theme!{" "}
-                </div>
-              )}
 
-              {restoredImage && (
-                <div className="mt-0 mt-8">
-                    
-                    <Image
-                      alt="restored photo"
-                      src={restoredImage}
-                      className="rounded-md relative sm:mt-0 mt-2 cursor-zoom-in w-full h-96"
-                      width={475}
-                      height={475}
-                      onLoad={() => setRestoredLoaded(true)}
-                    />
-                    
-                </div>)}
+            {error && (
+                <div className="text-red-500 text-center mt-4">
+                    {error}
+                </div>
+            )}
         </div>
     );
 }
