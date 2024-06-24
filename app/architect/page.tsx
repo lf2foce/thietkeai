@@ -54,11 +54,13 @@ export default function Page() {
                 <div className="mt-4 mx-auto">
                     <Image
                         alt="Uploaded"
-                        className="object-cover rounded-md"
+                        // className="object-cover rounded-md"
                         src={imageUrl}
-                        layout="responsive"
-                        width={100}
-                        height={100}
+                        // layout="responsive"
+                        width={500}
+                        height={500}
+                        className="object-contain rounded-md w-full h-auto"
+                        // style={{ aspectRatio: 'auto' }}
                     />
                 </div>
             )}
@@ -80,10 +82,12 @@ export default function Page() {
                         <Image
                             alt="Restored Photo"
                             src={restoredImage}
-                            className="object-cover rounded-md"
-                            layout="responsive"
-                            width={100}
-                            height={100}
+                            // className="object-cover rounded-md"
+                            // layout="responsive"
+                            width={500}
+                            height={500}
+                            className="object-contain rounded-md w-full h-auto"
+                            // style={{ aspectRatio: 'auto' }}
                         />
                     </div>
                 </div>
