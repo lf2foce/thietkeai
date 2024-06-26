@@ -1,5 +1,4 @@
 import '@/app/ui/global.css';
-import "@uploadthing/react/styles.css";
 
 import { inter } from '@/app/ui/fonts';
 import {

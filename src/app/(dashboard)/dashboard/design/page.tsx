@@ -37,6 +37,11 @@ export default function Page() {
         <div className="max-w-3xl mx-auto p-4 items-center justify-center">
             <h1 className="text-2xl font-bold text-center mb-4">Upload and Remodel Your Image</h1>
             <UploadDropzone
+                // appearance={{
+                //     button: "bg-red-500 ut-button:ut-ready:bg-red-500/50",
+                //     container:
+                //       "bg-slate-800 ut-label:text-lg ut-label:text-white ut-allowed-content:ut-uploading:text-red-300",
+                //   }}
                 endpoint={"imageUploader"}
                 onClientUploadComplete={(res) => {
                     if (res?.[0].url) {
