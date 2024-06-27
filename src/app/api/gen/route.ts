@@ -1,41 +1,7 @@
-// import { Ratelimit } from "@upstash/ratelimit";
-// import redis from "../../utils/redis";
 import { NextResponse } from "next/server";
 import { NextRequest } from 'next/server';
 
-import { headers } from "next/headers";
-
-// Create a new ratelimiter, that allows 5 requests per 24 hours
-// const ratelimit = redis
-//   ? new Ratelimit({
-//       redis: redis,
-//       limiter: Ratelimit.fixedWindow(5, "1440 m"),
-//       analytics: true,
-//     })
-//   : undefined;
-
 export async function POST(request: NextRequest) {
-  // Rate Limiter Code
-//   if (ratelimit) {
-//     const headersList = headers();
-//     const ipIdentifier = headersList.get("x-real-ip");
-
-//     const result = await ratelimit.limit(ipIdentifier ?? "");
-
-//     if (!result.success) {
-//       return new Response(
-//         "Too many uploads in 1 day. Please try again in a 24 hours.",
-//         {
-//           status: 429,
-//           headers: {
-//             "X-RateLimit-Limit": result.limit,
-//             "X-RateLimit-Remaining": result.remaining,
-//           } as any,
-//         }
-//       );
-//     }
-//   }
-
   const { imageUrl, theme, room } = await request.json();
   
   // POST request to Replicate to start the image restoration generation process
@@ -43,44 +9,37 @@ export async function POST(request: NextRequest) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Token " + process.env.REPLICATE_API_KEY,
+      Authorization: `Token ${process.env.REPLICATE_API_KEY}`,
     },
     body: JSON.stringify({
-      version:
-        "854e8727697a057c525cdb45ab037f64ecca770a1769cc52287c2e56472a247b",
+      version: "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38",
       input: {
-        image: imageUrl,
-        prompt:
-          room === "Gaming Room"
-            ? "a room for gaming with gaming computers, gaming consoles, and gaming chairs"
-            : `a ${theme.toLowerCase()} ${room.toLowerCase()}`,
-        a_prompt:
-          "Photo of a beautiful living room in the industrial style, photorealistic, ultra high resolution, insane detail",
-        n_prompt:
-          "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality",
-        // "guidance_scale": 15,
-        // "negative_prompt": "lowres, watermark, banner, logo, watermark, contactinfo, text, deformed, blurry, blur, out of focus, out of frame, surreal, extra, ugly, upholstered walls, fabric walls, plush walls, mirror, mirrored, functional, realistic",
-        // "prompt_strength": 0.8,
-        // "num_inference_steps": 50
+        image: imageUrl.startsWith('/') ? `https://yourdomain.com${imageUrl}` : imageUrl,
+        prompt: room === "Bedroom"
+          ? "A bedroom with a bohemian spirit centered around a relaxed canopy bed complemented by a large macrame wall hanging. An eclectic dresser serves as a unique storage solution while an array of potted plants brings life and color to the room"
+          : `a ${theme.toLowerCase()} ${room.toLowerCase()}`,
+        guidance_scale: 15,
+        negative_prompt: "lowres, watermark, banner, logo, watermark, contactinfo, text, deformed, blurry, blur, out of focus, out of frame, surreal, extra, ugly, upholstered walls, fabric walls, plush walls, mirror, mirrored, functional, realistic",
+        prompt_strength: 0.8,
+        num_inference_steps: 50,
       },
     }),
   });
 
   let jsonStartResponse = await startResponse.json();
-  console.log(room)
+  console.log("jsonStartResponse:", jsonStartResponse);
 
   let endpointUrl = jsonStartResponse.urls.get;
 
   // GET request to get the status of the image restoration process & return the result when it's ready
   let restoredImage: string | null = null;
   while (!restoredImage) {
-    // Loop in 1s intervals until the alt text is ready
     console.log("polling for result...");
     let finalResponse = await fetch(endpointUrl, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Token " + process.env.REPLICATE_API_KEY,
+        Authorization: `Token ${process.env.REPLICATE_API_KEY}`,
       },
     });
     let jsonFinalResponse = await finalResponse.json();
@@ -93,8 +52,9 @@ export async function POST(request: NextRequest) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
+  console.log("restoredImage:", restoredImage);
 
   return NextResponse.json(
-    restoredImage ? restoredImage : "Failed to restore image"
+    restoredImage ? { restoredImage } : { error: "Failed to restore image" }
   );
 }
