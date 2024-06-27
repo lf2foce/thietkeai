@@ -58,6 +58,10 @@ export async function POST(request: NextRequest) {
           "Photo of a beautiful living room in the industrial style, photorealistic, ultra high resolution, insane detail",
         n_prompt:
           "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality",
+        // "guidance_scale": 15,
+        // "negative_prompt": "lowres, watermark, banner, logo, watermark, contactinfo, text, deformed, blurry, blur, out of focus, out of frame, surreal, extra, ugly, upholstered walls, fabric walls, plush walls, mirror, mirrored, functional, realistic",
+        // "prompt_strength": 0.8,
+        // "num_inference_steps": 50
       },
     }),
   });
