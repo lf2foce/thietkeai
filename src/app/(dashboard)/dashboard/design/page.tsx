@@ -5,6 +5,9 @@ import { UploadDropzone } from "@/utils/uploadthing";
 import { useState } from "react";
 import DropDown from "@/app/(dashboard)/_components/DropDown";
 import { roomType, rooms, themeType, themes } from "@/utils/dropdownTypes";
+// import styled from 'styled-components';
+import RoomThemes from '@/app/(dashboard)/_components/RoomThemes';
+
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +18,9 @@ export default function Page() {
     const [theme, setTheme] = useState<themeType>("Modern");
     const [room, setRoom] = useState<roomType>("Living Room");
     const [restoredImage, setRestoredImage] = useState("");
+
+    //TA test
+   //
 
     async function generatePhoto(fileUrl: string, theme: themeType, room: roomType) {
         setLoading(true);
@@ -47,12 +53,14 @@ export default function Page() {
                           setTheme={(newRoom) => setRoom(newRoom as typeof room)}
                           themes={rooms}
                         />
-                        <p className="text-left font-medium">(2) Choose your room theme.</p>
+                         <p className="text-left font-medium">(2) Choose your room theme.</p>
                         <DropDown
                           theme={theme}
                           setTheme={(newTheme) => setTheme(newTheme as typeof theme)}
                           themes={themes}
                         />
+                        {/* <RoomThemes /> */}
+                     
                     </div>
                     <p className="text-left font-medium mt-4">(3) Upload your photo.</p>
                     <UploadDropzone
