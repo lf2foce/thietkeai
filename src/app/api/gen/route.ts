@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { NextRequest } from 'next/server';
-
-export const maxDuration = 60; // This function can run for a maximum of 5 seconds
+export const config = { maxDuration: 59 }
 
 export async function POST(request: NextRequest) {
   const { imageUrl, theme, room } = await request.json();
