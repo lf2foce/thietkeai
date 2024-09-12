@@ -10,7 +10,7 @@ import RoomThemes from '@/app/(dashboard)/_components/RoomThemes';
 
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // This function can run for a maximum of 5 seconds
+export const maxDuration = 60; 
 
 
 export default function Page() {
