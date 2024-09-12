@@ -10,6 +10,8 @@ import RoomThemes from '@/app/(dashboard)/_components/RoomThemes';
 
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // This function can run for a maximum of 5 seconds
+
 
 export default function Page() {
     const [imageUrl, setImageUrl] = useState("");
