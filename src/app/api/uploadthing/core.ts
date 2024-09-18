@@ -37,15 +37,29 @@ export const ourFileRouter = {
       // This code RUNS ON YOUR SERVER after upload
       console.log("Upload complete for userId:", metadata.userId);
  
+      //   await db.insert(images).values({ 
+      //       name: file.name,
+      //       url: file.url,
+      //       userId: metadata.userId,
+      //       design: metadata.design,
+      //       type: metadata.type,
+      //   });
+      // // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
+      // return { uploadedBy: metadata.userId };
+
+      try {
         await db.insert(images).values({ 
-            name: file.name,
-            url: file.url,
-            userId: metadata.userId,
-            design: metadata.design,
-            type: metadata.type,
+          name: file.name,
+          url: file.url,
+          userId: metadata.userId,
+          design: metadata.design,
+          type: metadata.type,
         });
-      // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
-      return { uploadedBy: metadata.userId };
+        return { uploadedBy: metadata.userId };
+      } catch (error) {
+        console.error("Database insertion error:", error);
+        throw new UploadThingError("Failed to save image information to database");
+      }
     }),
 } satisfies FileRouter;
  

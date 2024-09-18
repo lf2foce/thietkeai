@@ -22,9 +22,10 @@ export const images = createTable(
   "image",
   {
     id: serial("id").primaryKey(),
-    name: varchar("name", { length: 256 }).notNull(),
+    name: varchar("name", { length: 256 }),
     url: varchar("url", { length: 1024 }).notNull(),
-    userId: varchar("userId", { length: 256 }).notNull(),
+    originalImageId: varchar("originalImageId", { length: 256 }), //.notNull(),
+    userId: varchar("userId", { length: 256 }),//.notNull(),
     design: varchar("design", { length: 50 }).notNull(),
     type: varchar("type", { length: 50 }).notNull(),
     createdAt: timestamp("created_at")

@@ -7,6 +7,8 @@ import DropDown from "@/app/(dashboard)/_components/DropDown";
 import { roomType, rooms, themeType, themes } from "@/utils/dropdownTypes";
 // import styled from 'styled-components';
 import RoomThemes from '@/app/(dashboard)/_components/RoomThemes';
+import { uploadProcessedImage } from "@/utils/uploadProcessedImage";
+// import { useUser } from "@clerk/nextjs";
 
 
 export const dynamic = "force-dynamic";
@@ -15,6 +17,7 @@ export const maxDuration = 60;
 
 export default function Page() {
     const [imageUrl, setImageUrl] = useState("");
+    const [originalImageId, setOriginalImageId] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [theme, setTheme] = useState<themeType>("Modern");
@@ -23,6 +26,7 @@ export default function Page() {
     const [predictionId, setPredictionId] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
+    // const { user, isLoaded } = useUser();
 
     useEffect(() => {
         if (predictionId) {
@@ -33,6 +37,24 @@ export default function Page() {
             return () => clearInterval(pollInterval);
         }
     }, [predictionId]);
+
+    async function runTest(imageUrl: string, originalImageId: string) {
+        setError(null);
+    
+        if (originalImageId) {
+            console.log("Attempting to upload processed image. URL:", imageUrl);
+            try {
+                const processedUrl = await uploadProcessedImage(imageUrl, originalImageId);
+                console.log('Processed image uploaded successfully:', processedUrl);
+                // You can use processedUrl here if needed
+            } catch (error) {
+                console.error("Failed to upload processed image:", error);
+                setError("Failed to save the processed image. Please try again. Error: " + (error instanceof Error ? error.message : String(error)));
+            }
+        } else {
+            console.log("Not uploading processed image. originalImageId:", originalImageId);
+        }
+    }
 
     async function generatePhoto(fileUrl: string, theme: themeType, room: roomType) {
         setIsGenerating(true);
@@ -75,6 +97,33 @@ export default function Page() {
                 setRestoredImage(imageUrl);
                 setIsGenerating(false);
                 setPredictionId(null);
+
+                console.log("Restored image URL:", imageUrl); // Add this line to log the URL
+
+                if (imageUrl) {
+                    console.log("Restored image URL:", imageUrl);
+                    setRestoredImage(imageUrl);
+                    setIsGenerating(false);
+                    setPredictionId(null);
+    
+                    // if (originalImageId && user?.id) {
+                    //     console.log("Attempting to upload processed image. URL:", imageUrl);
+                    //     try {
+                    //         const processedUrl = await uploadProcessedImage(imageUrl, user.id, originalImageId);
+                    //         console.log('Processed image uploaded successfully:', processedUrl);
+                    //         // You can use processedUrl here if needed
+                    //     } catch (error) {
+                    //         console.error("Failed to upload processed image:", error);
+                    //         setError("Failed to save the processed image. Please try again. Error: " + (error instanceof Error ? error.message : String(error)));
+                    //     }
+                    // } else {
+                    //     console.log("Not uploading processed image. originalImageId:", originalImageId, "user.id:", user?.id);
+                    // }
+                } else {
+                    console.error("No image URL received from the API");
+                    setError("Failed to generate image. Please try again.");
+                }
+
             } else if (data.status === "failed") {
                 setError("Image generation failed. Please try again.");
                 setIsGenerating(false);
@@ -130,8 +179,14 @@ export default function Page() {
                         onClientUploadComplete={(res) => {
                             setIsUploading(false);
                             if (res?.[0].url) {
-                                setImageUrl(res?.[0].url);
+                                const newImageUrl = res[0].url;
+                                const newOriginalImageId = res[0].key;
+                                
+                                setImageUrl(newImageUrl);
+                                setOriginalImageId(newOriginalImageId);
                                 generatePhoto(res?.[0].url, theme, room);
+                                
+                                runTest(newImageUrl, newOriginalImageId);
                             }
                         }}
                         onUploadError={(error: Error) => {
