@@ -20,7 +20,7 @@ const links = [
   //   href: '/dashboard/invoices',
   //   icon: DocumentDuplicateIcon,
   // },
-  { name: 'Design', href: '/dashboard/design', icon: CpuChipIcon },
+  { name: 'Interior Design', href: '/dashboard/interior', icon: CpuChipIcon },
   { name: 'Images', href: '/dashboard/uploaded', icon: PhotoIcon },
   // { name: 'Customers', href: '/dashboard/customers', icon: UserGroupIcon },
   // { name: 'Customers', href: '/dashboard/customers', icon: UserGroupIcon },

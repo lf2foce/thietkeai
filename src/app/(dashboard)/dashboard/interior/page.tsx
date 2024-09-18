@@ -139,6 +139,8 @@ export default function Page() {
                             console.error("Oops something is wrong", error);
                             setError("Upload failed. Please try again.");
                         }}
+                        input={{ design: 'interior', type: 'original' }}
+                        // config={{ mode: "auto", addToUrl: { design: 'interior', type: 'original' } }}
                     />
                 </div>
                 <div className="col-span-4 lg:col-span-2">

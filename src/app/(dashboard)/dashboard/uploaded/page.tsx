@@ -18,9 +18,34 @@ const mockImages = mockUrls.map((url, index) => ({
     url,
 }));
 
+// async function Images() {
+//     const images = await db.query.images.findMany();
+//     // console.log(images);
+//     return (
+//         <div className="flex flex-wrap justify-center gap-4 p-4">
+//         {images.map((image) => (
+//             <div key={image.id} className="w-48 h-48 flex items-center justify-center">
+//             <a href={`/img/${image.id}`}>
+//                 <img
+//                 src={image.url}
+//                 //   style={{ objectFit: "contain" }}
+//                 //   width={192}
+//                 //   height={192}
+//                 alt='image'
+//                 />
+//             </a>
+//             {/* <div>{image.name}</div> */}
+//             </div>
+//       ))}
+//       </div>
+//     );
+// }
+
 async function Images() {
-    const images = await db.query.images.findMany();
-    // console.log(images);
+    const images = await db.query.images.findMany({
+        where: (images, { eq }) => eq(images.type, 'processed')
+    });
+
     return (
         <div className="flex flex-wrap justify-center gap-4 p-4">
         {images.map((image) => (
@@ -28,13 +53,9 @@ async function Images() {
             <a href={`/img/${image.id}`}>
                 <img
                 src={image.url}
-                //   style={{ objectFit: "contain" }}
-                //   width={192}
-                //   height={192}
                 alt='image'
                 />
             </a>
-            {/* <div>{image.name}</div> */}
             </div>
       ))}
       </div>
