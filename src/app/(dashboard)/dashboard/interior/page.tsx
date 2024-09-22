@@ -40,12 +40,12 @@ export default function Page() {
 
     async function runTest(imageUrl: string, originalImageId: string) {
         setError(null);
-    
+
         if (originalImageId) {
             console.log("Attempting to upload processed image. URL:", imageUrl);
             try {
                 const processedUrl = await uploadProcessedImage(imageUrl, originalImageId);
-                console.log('Processed image uploaded successfully:', processedUrl);
+                console.log('Processed image uploaded successfully: from processed image to', processedUrl);
                 // You can use processedUrl here if needed
             } catch (error) {
                 console.error("Failed to upload processed image:", error);
@@ -98,27 +98,19 @@ export default function Page() {
                 setIsGenerating(false);
                 setPredictionId(null);
 
-                console.log("Restored image URL:", imageUrl); // Add this line to log the URL
+                console.log("Restored image URL:", imageUrl);
 
                 if (imageUrl) {
-                    console.log("Restored image URL:", imageUrl);
                     setRestoredImage(imageUrl);
                     setIsGenerating(false);
                     setPredictionId(null);
-    
-                    // if (originalImageId && user?.id) {
-                    //     console.log("Attempting to upload processed image. URL:", imageUrl);
-                    //     try {
-                    //         const processedUrl = await uploadProcessedImage(imageUrl, user.id, originalImageId);
-                    //         console.log('Processed image uploaded successfully:', processedUrl);
-                    //         // You can use processedUrl here if needed
-                    //     } catch (error) {
-                    //         console.error("Failed to upload processed image:", error);
-                    //         setError("Failed to save the processed image. Please try again. Error: " + (error instanceof Error ? error.message : String(error)));
-                    //     }
-                    // } else {
-                    //     console.log("Not uploading processed image. originalImageId:", originalImageId, "user.id:", user?.id);
-                    // }
+
+                    // Call runTest with the new generated image URL and the original image ID
+                    if (originalImageId) {
+                        runTest(imageUrl, originalImageId);
+                    } else {
+                        console.log("Not uploading processed image. originalImageId is missing.");
+                    }
                 } else {
                     console.error("No image URL received from the API");
                     setError("Failed to generate image. Please try again.");
@@ -186,7 +178,7 @@ export default function Page() {
                                 setOriginalImageId(newOriginalImageId);
                                 generatePhoto(res?.[0].url, theme, room);
                                 
-                                runTest(newImageUrl, newOriginalImageId);
+                            
                             }
                         }}
                         onUploadError={(error: Error) => {

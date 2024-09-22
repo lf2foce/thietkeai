@@ -5,7 +5,7 @@ import { useUser } from "@clerk/nextjs";
 
 async function uploadProcessedImage(
     imageUrl: string,
-    // userId: string,
+    userId: string,
     originalImageId: string
   ) {
     try {
@@ -14,7 +14,7 @@ async function uploadProcessedImage(
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ imageUrl,  originalImageId }), //userId, 
+        body: JSON.stringify({ imageUrl, userId, originalImageId }), //userId, 
       });
   
       const data = await response.json();
@@ -47,7 +47,8 @@ export default function ExteriorTestPage() {
             return;
         }
 
-        const testImageUrl = 'https://utfs.io/f/58Au0cDLsjupzPYObtlxcsRYa0oCAmgGJHnpvrK6bMViBStN';
+        // const testImageUrl = 'https://utfs.io/f/58Au0cDLsjupzPYObtlxcsRYa0oCAmgGJHnpvrK6bMViBStN';
+        const testImageUrl = 'https://replicate.delivery/pbxt/jlwQGZl8MAqXMN3t1EZWd2PGE5qTxwOV8Y1W8fAmsi5sEtvJA/out.png';
         const testOriginalId = 'test-original-id-' + Date.now();
 
         try {
@@ -55,7 +56,7 @@ export default function ExteriorTestPage() {
             console.log("Starting test with URL:", testImageUrl);
             
             // const result = await uploadProcessedImage(testImageUrl, user.id, testOriginalId);
-            const result = await uploadProcessedImage(testImageUrl, '1',); // '2'
+            const result = await uploadProcessedImage(testImageUrl, '1', '2'); // '2'
 
             console.log("Test completed. Result:", result);
             setTestResult(`Test completed successfully. Uploaded URL: ${result}`);

@@ -3,19 +3,23 @@ import { UTApi } from "uploadthing/server";
 import { db } from "@/app/server/db";
 import { images } from "@/app/server/db/schema";
 
-// import path from 'path';
-// import mime from 'mime-types'; 
+import { auth } from "@clerk/nextjs/server";
+
 
 const utapi = new UTApi();
 
 export async function POST(req: Request) {
   try {
+    const { userId } = auth();
+    if (!userId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const { imageUrl, originalImageId } = await req.json(); //userId, 
     const fileName = `processed_image_${Date.now()}`;
     // Upload the image to UploadThing
     const uploadedImage = await utapi.uploadFilesFromUrl(imageUrl,{
         metadata: { originalImageId }, //userId, 
-        contentDisposition: `inline`, // Set content disposition to 'inline'
+        contentDisposition: `inline`, // Set content di sposition to 'inline'
         // contentType: "image/jpeg", 
       });
 
@@ -26,9 +30,9 @@ export async function POST(req: Request) {
     // Insert the image data into your database
     const insertedImage = await db.insert(images).values({
       url: uploadedImage.data.url,
-    //   userId: userId,
+      userId: userId,
       name: fileName,
-      design: 'exterior',
+      design: 'interior',
       type: 'processed',
       originalImageId: originalImageId
     }).returning();
