@@ -1,80 +1,66 @@
+// /pages/index.js (or wherever your HomePage component is located)
 
-import { SignedIn, SignedOut } from "@clerk/nextjs";
-// import Image from "next/image";
-// import Link from "next/link";
+import { SignedIn, SignedOut} from "@clerk/nextjs";
+import { auth } from '@clerk/nextjs/server'
 import { db } from "@/app/server/db";
-// import { getMyImages } from "~/server/queries";
 
 export const dynamic = "force-dynamic";
 
-const mockUrls = [
-    'https://utfs.io/f/1f9c567a-c1a0-4c48-af0c-30487810d0e2-dkiuwk.42.31.png',
-    'https://utfs.io/f/989333d2-cbaa-40b3-b2d0-7f2dfb3c81a0-kpbxl.47.34.png'
-];
-
-const mockImages = mockUrls.map((url, index) => ({
-    id: Math.random().toString(36).substring(2), // id: index +1
-    // name: url.split('/').pop(),
-    url,
-}));
-
-// async function Images() {
-//     const images = await db.query.images.findMany();
-//     // console.log(images);
-//     return (
-//         <div className="flex flex-wrap justify-center gap-4 p-4">
-//         {images.map((image) => (
-//             <div key={image.id} className="w-48 h-48 flex items-center justify-center">
-//             <a href={`/img/${image.id}`}>
-//                 <img
-//                 src={image.url}
-//                 //   style={{ objectFit: "contain" }}
-//                 //   width={192}
-//                 //   height={192}
-//                 alt='image'
-//                 />
-//             </a>
-//             {/* <div>{image.name}</div> */}
-//             </div>
-//       ))}
-//       </div>
-//     );
-// }
-
+// Function to fetch the current user's images with type 'processed'
 async function Images() {
+    const { userId } = await auth(); // Get the current user's ID from Clerk
+
+    if (!userId) {
+        return <p>No user detected, please sign in.</p>;
+    }
+
+    // Query to fetch images for the current user where type is 'processed'
     const images = await db.query.images.findMany({
-        where: (images, { eq }) => eq(images.type, 'processed')
+        where: (images, { eq, and }) =>
+            and(eq(images.userId, userId), eq(images.type, 'processed')),
     });
+
+    if (images.length === 0) {
+        return <p>No processed images found for the current user.</p>;
+    }
 
     return (
         <div className="flex flex-wrap justify-center gap-4 p-4">
-        {images.map((image) => (
-            <div key={image.id} className="w-48 h-48 flex items-center justify-center">
-            <a href={`/img/${image.id}`}>
-                <img
-                src={image.url}
-                alt='image'
-                />
-            </a>
-            </div>
-      ))}
-      </div>
+            {images.map((image) => (
+                <div key={image.id} className="w-48 h-48 flex items-center justify-center">
+                    <a href={`${image.url}`}>
+                        <img
+                            src={image.url}
+                            alt="image"
+                        />
+                    </a>
+                </div>
+            ))}
+        </div>
     );
 }
 
 export default async function HomePage() {
-//   const images = await getMyImages();
+    const { userId } = await auth(); // Fetch the current user ID on the server side
 
-  return (
-    <main className="">
-        <SignedOut>
-            <div className='h-full w-full text-2xl'>
-                <h1>Sign in to view your images</h1>
-            </div>
-        </SignedOut>
-        <SignedIn>
-        <h1 className="text-2xl">Images</h1>
-        <Images />
-        </SignedIn>
-      </main>
-  )};
+    if (!userId) {
+        return (
+            <main>
+                <SignedOut>
+                    <div className='h-full w-full text-2xl'>
+                        <h1>Sign in to view your images</h1>
+                    </div>
+                </SignedOut>
+            </main>
+        );
+    }
+
+    return (
+        <main className="">
+            <SignedIn>
+                <h1 className="text-2xl">Images</h1>
+                <Images />
+            </SignedIn>
+        </main>
+    );
+}

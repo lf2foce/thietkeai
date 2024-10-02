@@ -11,7 +11,8 @@ import {
   SignedOut,
   UserButton
 } from '@clerk/nextjs'
- 
+import { Analytics } from "@vercel/analytics/react"
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
@@ -28,6 +29,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
     </body>
     </html>
+    <Analytics/>
     </ClerkProvider>
   );
 }
