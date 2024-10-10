@@ -20,17 +20,16 @@ export default function Page() {
         <p
           className={`${lusitana.className} text-xl text-gray-800 md:text-3xl md:leading-normal`}
         >            
-          <strong>Trợ lý AI</strong> Tạo mẫu thiết kế nội thất cực nhanh{' '}
+          <strong>Trợ lý AI - </strong> Tạo mẫu thiết kế nội thất cực nhanh{''}
             {/* <a href="https://nextjs.org/learn/" className="text-blue-500">
               Next.js Learn Course
-            </a> */}
-            , Giải pháp tiết kiệm thời gian cho đối tác thiết kế.
+            </a> */}, giúp bạn hoàn thiện ý tưởng lựa chọn phong cách và nội thất chỉ trong 10s
           </p>
           <Link
             href="dashboard/interior"
             className="flex items-center gap-5 self-start rounded-lg bg-blue-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-400 md:text-base"
           >
-            <span>Tạo mẫu</span> <ArrowRightIcon className="w-5 md:w-6" />
+            <span>Sáng tạo ngay</span> <ArrowRightIcon className="w-5 md:w-6" />
           </Link>
         </div>
         <div className="flex items-center justify-center p-6 md:w-3/5 md:px-28 md:py-12">
