@@ -5,21 +5,15 @@ import { UploadDropzone } from "@/utils/uploadthing";
 import { useState, useEffect } from "react";
 import DropDown from "@/app/(dashboard)/_components/DropDown";
 import { roomType, rooms, themeType, themes } from "@/utils/dropdownTypes";
-// import styled from 'styled-components';
-import RoomThemes from '@/app/(dashboard)/_components/RoomThemes';
 import { uploadProcessedImage } from "@/utils/uploadProcessedImage";
-// import { useUser } from "@clerk/nextjs";
-
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; 
-
 
 export default function Page() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [originalImageId, setOriginalImageId] = useState<string | null>(null);
-    const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [theme, setTheme] = useState<themeType>("Modern");
     const [room, setRoom] = useState<roomType>("Living Room");
@@ -27,7 +21,6 @@ export default function Page() {
     const [predictionId, setPredictionId] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
-    // const { user, isLoaded } = useUser();
 
     useEffect(() => {
         if (predictionId) {
@@ -47,7 +40,6 @@ export default function Page() {
             try {
                 const processedUrl = await uploadProcessedImage(imageUrl, originalImageId);
                 console.log('Processed image uploaded successfully: from processed image to', processedUrl);
-                // You can use processedUrl here if needed
             } catch (error) {
                 console.error("Failed to upload processed image:", error);
                 setError("Failed to save the processed image. Please try again. Error: " + (error instanceof Error ? error.message : String(error)));
@@ -92,31 +84,19 @@ export default function Page() {
             console.log("Prediction status response:", data);
 
             if (data.status === "succeeded") {
-                console.log("Restored image URL:", data.restoredImage);
-                // Check if restoredImage is an array and take the first item if so
                 const imageUrl = Array.isArray(data.restoredImage) ? data.restoredImage[0] : data.restoredImage;
                 setRestoredImage(imageUrl);
                 setIsGenerating(false);
                 setPredictionId(null);
 
-                console.log("Restored image URL:", imageUrl);
+                // Keep the preview URL as the processed image URL
+                setPreviewUrl(imageUrl);
 
-                if (imageUrl) {
-                    setRestoredImage(imageUrl);
-                    setIsGenerating(false);
-                    setPredictionId(null);
-
-                    // Call runTest with the new generated image URL and the original image ID
-                    if (originalImageId) {
-                        runTest(imageUrl, originalImageId);
-                    } else {
-                        console.log("Not uploading processed image. originalImageId is missing.");
-                    }
+                if (imageUrl && originalImageId) {
+                    runTest(imageUrl, originalImageId);
                 } else {
-                    console.error("No image URL received from the API");
-                    setError("Failed to generate image. Please try again.");
+                    console.log("Not uploading processed image. originalImageId is missing.");
                 }
-
             } else if (data.status === "failed") {
                 setError("Image generation failed. Please try again.");
                 setIsGenerating(false);
@@ -141,7 +121,6 @@ export default function Page() {
         if (files.length > 0) {
             const file = files[0];
             setPreviewUrl(URL.createObjectURL(file)); // Create a preview URL
-            // Handle file upload logic here
         }
     };
 
@@ -153,17 +132,15 @@ export default function Page() {
                         <p className="text-left font-medium">(1) Choose your room type.</p>
                         <DropDown
                           theme={room}
-                          setTheme={(newRoom) => setRoom(newRoom as typeof room)}
+                          setTheme={(newRoom) => setRoom(newRoom as roomType)}
                           themes={rooms}
                         />
-                         <p className="text-left font-medium">(2) Choose your room theme.</p>
+                        <p className="text-left font-medium">(2) Choose your room theme.</p>
                         <DropDown
                           theme={theme}
-                          setTheme={(newTheme) => setTheme(newTheme as typeof theme)}
+                          setTheme={(newTheme) => setTheme(newTheme as themeType)}
                           themes={themes}
                         />
-                        {/* <RoomThemes /> */}
-                     
                     </div>
                     <p className="text-left font-medium mt-4">(3) Upload your photo.</p>
                     <UploadDropzone
@@ -185,9 +162,7 @@ export default function Page() {
                                 
                                 setImageUrl(newImageUrl);
                                 setOriginalImageId(newOriginalImageId);
-                                generatePhoto(res?.[0].url, theme, room);
-                                
-                            
+                                generatePhoto(newImageUrl, theme, room);
                             }
                         }}
                         onUploadError={(error: Error) => {
@@ -196,20 +171,19 @@ export default function Page() {
                             setError("Upload failed. Please try again.");
                         }}
                         input={{ design: 'interior', type: 'original' }}
-                        // config={{ mode: "auto", addToUrl: { design: 'interior', type: 'original' } }}
                         onDrop={handleFileChange}
-                        {previewUrl && (
-                            <div className="mt-4">
-                                <Image
-                                    src={previewUrl}
-                                    alt="Preview"
-                                    width={100} // Set the desired width
-                                    height={100} // Set the desired height
-                                    className="object-cover rounded-md"
-                                />
-                            </div>
-                        )}
                     />
+                    {previewUrl && (
+                        <div className="mt-4">
+                            <Image
+                                src={previewUrl}
+                                alt="Preview"
+                                width={100} // Set the desired width
+                                height={100} // Set the desired height
+                                className="object-cover rounded-md"
+                            />
+                        </div>
+                    )}
                 </div>
                 <div className="col-span-4 lg:col-span-2">
                     {imageUrl && (
@@ -262,14 +236,6 @@ export default function Page() {
                             {error}
                         </div>
                     )}
-
-                    
-
-                    {/* {restoredImage && (
-                        <div>
-                            <p>Debug: Restored Image URL: {restoredImage}</p>
-                        </div>
-                    )} */}
                 </div>
             </div>
         </div>
