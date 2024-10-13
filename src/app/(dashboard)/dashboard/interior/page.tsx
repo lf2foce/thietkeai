@@ -16,7 +16,8 @@ export const maxDuration = 60;
 
 
 export default function Page() {
-    const [imageUrl, setImageUrl] = useState("");
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [originalImageId, setOriginalImageId] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
@@ -136,6 +137,14 @@ export default function Page() {
         }
     }
 
+    const handleFileChange = (files: File[]) => {
+        if (files.length > 0) {
+            const file = files[0];
+            setPreviewUrl(URL.createObjectURL(file)); // Create a preview URL
+            // Handle file upload logic here
+        }
+    };
+
     return (
         <div className="mx-auto p-4 items-center justify-center">
             <div className="grid grid-cols-3 gap-6">
@@ -188,6 +197,18 @@ export default function Page() {
                         }}
                         input={{ design: 'interior', type: 'original' }}
                         // config={{ mode: "auto", addToUrl: { design: 'interior', type: 'original' } }}
+                        onDrop={handleFileChange}
+                        {previewUrl && (
+                            <div className="mt-4">
+                                <Image
+                                    src={previewUrl}
+                                    alt="Preview"
+                                    width={100} // Set the desired width
+                                    height={100} // Set the desired height
+                                    className="object-cover rounded-md"
+                                />
+                            </div>
+                        )}
                     />
                 </div>
                 <div className="col-span-4 lg:col-span-2">
@@ -241,6 +262,8 @@ export default function Page() {
                             {error}
                         </div>
                     )}
+
+                    
 
                     {/* {restoredImage && (
                         <div>
