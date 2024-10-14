@@ -9,7 +9,7 @@ export default function Page() {
   return (
     <main className="flex min-h-screen flex-col p-6">
       {/* <div className={styles.shape} /> */}
-      <div className="flex h-20 shrink-0 items-end rounded-lg bg-blue-500 p-4 md:h-52">
+      <div className="flex h-20 shrink-0 items-end rounded-lg p-4 bg-gradient-to-r from-indigo-600 via-purple-400 to-pink-200">
         <AcmeLogo />
         {/* <div
           className="h-0 w-0 border-b-[30px] border-l-[20px] border-r-[20px] border-b-black border-l-transparent border-r-transparent"
@@ -27,7 +27,7 @@ export default function Page() {
           </p>
           <Link
             href="dashboard/interior"
-            className="flex items-center gap-5 self-start rounded-lg bg-blue-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-400 md:text-base"
+            className="flex items-center gap-5 self-start rounded-lg bg-gradient-to-r from-indigo-600 via-purple-400 to-pink-200 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-400 md:text-base"
           >
             <span>Sáng tạo ngay</span> <ArrowRightIcon className="w-5 md:w-6" />
           </Link>

@@ -8,6 +8,7 @@ import {
   SignedOut,
   UserButton
 } from '@clerk/nextjs'
+import { Analytics } from '@vercel/analytics/react';
 
 export default function RootLayout({
   children,
@@ -18,6 +19,7 @@ export default function RootLayout({
     // <ClerkProvider>
     <html lang="en">
       <body className={`${inter.className} antialiased`}>{children}</body>
+      <Analytics />
     </html>
     // </ClerkProvider>
   );

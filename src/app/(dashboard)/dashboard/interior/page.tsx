@@ -36,10 +36,10 @@ export default function Page() {
         setError(null);
 
         if (originalImageId) {
-            console.log("Attempting to upload processed image. URL:", imageUrl);
+            // console.log("Attempting to upload processed image. URL:", imageUrl);
             try {
                 const processedUrl = await uploadProcessedImage(imageUrl, originalImageId);
-                console.log('Processed image uploaded successfully: from processed image to', processedUrl);
+                // console.log('Processed image uploaded successfully: from processed image to', processedUrl);
             } catch (error) {
                 console.error("Failed to upload processed image:", error);
                 setError("Failed to save the processed image. Please try again. Error: " + (error instanceof Error ? error.message : String(error)));
@@ -81,7 +81,7 @@ export default function Page() {
         try {
             const res = await fetch(`/api/gen?id=${id}`);
             const data = await res.json();
-            console.log("Prediction status response:", data);
+            // console.log("Prediction status response:", data);
 
             if (data.status === "succeeded") {
                 const imageUrl = Array.isArray(data.restoredImage) ? data.restoredImage[0] : data.restoredImage;
