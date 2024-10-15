@@ -8,6 +8,7 @@ import {
   serial,
   timestamp,
   varchar,
+  pgTable, integer, text
 } from "drizzle-orm/pg-core";
 
 /**
@@ -37,3 +38,14 @@ export const images = createTable(
     nameIndex: index("name_idx").on(example.name),
   }),
 );
+
+
+export const feedback = pgTable('feedback', {
+  id: serial('id').primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  userEmail: varchar('user_email', { length: 255 }).notNull(),
+  role: varchar('role', { length: 50 }).notNull(),
+  rating: integer('rating').notNull(),
+  message: text('message').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+})

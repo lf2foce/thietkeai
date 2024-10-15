@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useUser } from '@clerk/nextjs'
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -16,29 +17,63 @@ const roles = [
 ]
 
 export default function FeedbackForm() {
+  const { user } = useUser()
   const [role, setRole] = useState('')
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [message, setMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [errorMessage, setErrorMessage] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!user) {
+      setSubmitStatus('error')
+      setErrorMessage('User not authenticated')
+      return
+    }
+    if (!role) {
+      setSubmitStatus('error')
+      setErrorMessage('Please select a role')
+      return
+    }
+    if (rating === 0) {
+      setSubmitStatus('error')
+      setErrorMessage('Please provide a rating')
+      return
+    }
+    if (!message.trim()) {
+      setSubmitStatus('error')
+      setErrorMessage('Please provide feedback')
+      return
+    }
+
     setIsSubmitting(true)
     setSubmitStatus('idle')
+    setErrorMessage('')
 
     try {
-      await submitFeedback(role, rating, message)
-      setSubmitStatus('success')
-      setMessage('')
-      setRole('')
-      setRating(0)
+      const result = await submitFeedback(user.id, user.primaryEmailAddress?.emailAddress || '', role, rating, message)
+      if (result.success) {
+        setSubmitStatus('success')
+        setMessage('')
+        setRole('')
+        setRating(0)
+      } else {
+        setSubmitStatus('error')
+        setErrorMessage(result.error || 'An error occurred while submitting feedback')
+      }
     } catch (error) {
       setSubmitStatus('error')
+      setErrorMessage('An unexpected error occurred')
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (!user) {
+    return <p>Please sign in to submit feedback.</p>
   }
 
   return (
@@ -100,7 +135,7 @@ export default function FeedbackForm() {
           <p className="text-green-600 text-center">Thank you for your feedback!</p>
         )}
         {submitStatus === 'error' && (
-          <p className="text-red-600 text-center">An error occurred. Please try again.</p>
+          <p className="text-red-600 text-center">{errorMessage}</p>
         )}
       </form>
     </div>
