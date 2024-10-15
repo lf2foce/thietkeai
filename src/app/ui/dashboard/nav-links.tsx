@@ -5,7 +5,8 @@ import {
   HomeIcon,
   DocumentDuplicateIcon,
   PhotoIcon,
-  CpuChipIcon
+  CpuChipIcon,
+  HeartIcon
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -22,7 +23,7 @@ const links = [
   // },
   { name: 'Interior Design', href: '/dashboard/interior', icon: CpuChipIcon },
   { name: 'Images', href: '/dashboard/uploaded', icon: PhotoIcon },
-  // { name: 'Customers', href: '/dashboard/customers', icon: UserGroupIcon },
+  { name: 'Feedback', href: '/dashboard/feedback', icon: HeartIcon },
   // { name: 'Customers', href: '/dashboard/customers', icon: UserGroupIcon },
 ];
 
