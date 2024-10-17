@@ -1,11 +1,38 @@
+'use client'
+
 import AcmeLogo from '@/app/ui/acme-logo';
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 // import styles from '@/app/ui/home.module.css';
 import { lusitana } from '@/app/ui/fonts';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation'
+
+import { toast } from 'react-toastify';
+
+function isWebview(userAgent) {
+  const webviewRegex = /(FBAN|FBAV|Instagram|WebView|wv)/i;
+  return webviewRegex.test(userAgent);
+}
+
 
 export default function Page() {
+
+  const router = useRouter();
+
+  const handleClick = (e) => {
+    // Check if the user is using a webview
+    if (isWebview(navigator.userAgent)) {
+      e.preventDefault(); // Prevent the default link behavior
+      toast("Open this link in Safari or Chrome to proceed.", {
+        duration: 10000,
+      });
+    } else {
+      // If not a webview, allow navigation
+      router.push('/dashboard/interior');
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col p-6">
       {/* <div className={styles.shape} /> */}
@@ -26,6 +53,7 @@ export default function Page() {
             </a> */}, giúp bạn hoàn thiện ý tưởng lựa chọn phong cách và nội thất chỉ trong 10s
           </p>
           <Link
+            onClick={handleClick}
             href="dashboard/interior"
             className="flex items-center gap-5 self-start rounded-lg bg-gradient-to-r from-indigo-600 via-purple-400 to-pink-200 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-400 md:text-base"
           >

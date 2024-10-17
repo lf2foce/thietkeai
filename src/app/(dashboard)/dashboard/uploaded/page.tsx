@@ -3,6 +3,7 @@
 import { SignedIn, SignedOut} from "@clerk/nextjs";
 import { auth } from '@clerk/nextjs/server'
 import { db } from "@/app/server/db";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -25,17 +26,23 @@ async function Images() {
     }
 
     return (
-        <div className="flex flex-wrap justify-center gap-4 p-4">
-            {images.map((image) => (
-                <div key={image.id} className="w-48 h-48 flex items-center justify-center">
-                    <a href={`${image.url}`}>
-                        <img
-                            src={image.url}
-                            alt="image"
-                        />
-                    </a>
-                </div>
-            ))}
+        <div className="flex flex-col p-4">
+            <p className="text-red-500 mb-4">*Chú ý: Chỉ lưu trữ dữ liệu trong ngày, 
+                hãy <Link href="/dashboard/feedback" className="text-blue-500">liên hệ</Link> với chúng tôi để lưu trữ dữ liệu lâu dài.</p>
+            
+            <div className="flex flex-wrap justify-center gap-4">
+                {images.map((image) => (
+                    <div key={image.id} className="w-48 h-48 flex items-center justify-center">
+                        <a href={`${image.url}`}>
+                            <img
+                                src={image.url}
+                                alt="image"
+                                className="object-cover w-full h-full rounded-md" // Optional: Add styling for images
+                            />
+                        </a>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
