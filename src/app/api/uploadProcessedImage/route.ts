@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
     // Insert the image data into your database
     const insertedImage = await db.insert(images).values({
-      url: uploadedImage.data.url,
+      url: uploadedImage.data.ufsUrl,
       userId: userId,
       name: fileName,
       design: 'interior',

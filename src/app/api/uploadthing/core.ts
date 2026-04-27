@@ -50,7 +50,7 @@ export const ourFileRouter = {
       try {
         await db.insert(images).values({ 
           name: file.name,
-          url: file.url,
+          url: file.ufsUrl,
           userId: metadata.userId,
           design: metadata.design,
           type: metadata.type,
