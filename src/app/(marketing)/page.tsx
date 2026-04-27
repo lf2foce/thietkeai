@@ -234,7 +234,7 @@ export default function LandingPage() {
       Whether you're looking to integrate AI into your workflow, optimize automation, or explore new possibilities, we're here to help.
     </p>
     <Link
-      href="https://www.linkedin.com/in/anh-the-bui-66817857/"
+      href="www.linkedin.com/in/anhbt91"
       className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-white text-blue-600 rounded-xl font-medium hover:opacity-90 transition-all hover:scale-105"
     >
       Contact Us Today
