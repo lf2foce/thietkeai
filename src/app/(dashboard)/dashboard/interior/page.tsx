@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { UploadDropzone } from "@/utils/uploadthing";
-import { useState, useEffect } from "react";
+import { useUploadThing } from "@/utils/uploadthing";
+import { useState, useEffect, useRef } from "react";
 import DropDown from "@/app/(dashboard)/_components/DropDown";
 import { roomType, rooms, themeType, themes } from "@/utils/dropdownTypes";
 import { uploadProcessedImage } from "@/utils/uploadProcessedImage";
@@ -13,6 +13,8 @@ export const maxDuration = 60;
 export default function Page() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [originalImageId, setOriginalImageId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [theme, setTheme] = useState<themeType>("Modern");
@@ -117,11 +119,32 @@ export default function Page() {
         }
     }
 
-    const handleFileChange = (files: File[]) => {
-        if (files.length > 0) {
-            const file = files[0];
-            setPreviewUrl(URL.createObjectURL(file)); // Create a preview URL
-        }
+    const { startUpload } = useUploadThing("imageUploader", {
+        onUploadBegin: () => setIsUploading(true),
+        onClientUploadComplete: (res) => {
+            setIsUploading(false);
+            if (res?.[0].url) {
+                setImageUrl(res[0].url);
+                setOriginalImageId(res[0].key);
+                generatePhoto(res[0].url, theme, room);
+            }
+        },
+        onUploadError: (err) => {
+            setIsUploading(false);
+            setError("Upload failed. Please try again.");
+        },
+    });
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setSelectedFile(file);
+        setPreviewUrl(URL.createObjectURL(file));
+    };
+
+    const handleUpload = async () => {
+        if (!selectedFile) return;
+        await startUpload([selectedFile], { design: 'interior', type: 'original' });
     };
 
     return (
@@ -143,47 +166,34 @@ export default function Page() {
                         />
                     </div>
                     <p className="text-left font-medium mt-4">(3) Upload your photo.</p>
-                    <UploadDropzone
-                        appearance={{
-                            container: {
-                                margin: "5px",
-                                padding: "10px",
-                            },
-                        }}
-                        endpoint={"imageUploader"}
-                        onUploadBegin={() => {
-                            setIsUploading(true);
-                        }}
-                        onClientUploadComplete={(res) => {
-                            setIsUploading(false);
-                            if (res?.[0].url) {
-                                const newImageUrl = res[0].url;
-                                const newOriginalImageId = res[0].key;
-                                
-                                setImageUrl(newImageUrl);
-                                setOriginalImageId(newOriginalImageId);
-                                generatePhoto(newImageUrl, theme, room);
-                            }
-                        }}
-                        onUploadError={(error: Error) => {
-                            setIsUploading(false);
-                            console.error("Oops something is wrong", error);
-                            setError("Upload failed. Please try again.");
-                        }}
-                        input={{ design: 'interior', type: 'original' }}
-                        onDrop={handleFileChange}
-                    />
-                    {previewUrl && (
-                        <div className="mt-4">
-                            <Image
-                                src={previewUrl}
-                                alt="Preview"
-                                width={100} // Set the desired width
-                                height={100} // Set the desired height
-                                className="object-cover rounded-md"
+                    <div className="mt-2 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-8 text-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="mx-auto h-12 w-12 text-gray-400">
+                            <path fill="currentColor" fillRule="evenodd" d="M5.5 17a4.5 4.5 0 0 1-1.44-8.765a4.5 4.5 0 0 1 8.302-3.046a3.5 3.5 0 0 1 4.504 4.272A4 4 0 0 1 15 17H5.5Zm3.75-2.75a.75.75 0 0 0 1.5 0V9.66l1.95 2.1a.75.75 0 1 0 1.1-1.02l-3.25-3.5a.75.75 0 0 0-1.1 0l-3.25 3.5a.75.75 0 1 0 1.1 1.02l1.95-2.1v4.59Z" clipRule="evenodd" />
+                        </svg>
+                        <label className="cursor-pointer text-sm font-semibold text-blue-600 hover:text-blue-500">
+                            {selectedFile ? selectedFile.name : "Choose a file or drag and drop"}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="sr-only"
+                                onChange={handleFileSelect}
                             />
-                        </div>
-                    )}
+                        </label>
+                        <p className="text-xs text-gray-600">Image (4MB)</p>
+                        {previewUrl && (
+                            <img src={previewUrl} alt="Preview" className="w-24 h-24 object-cover rounded-md" />
+                        )}
+                        {selectedFile && (
+                            <button
+                                onClick={handleUpload}
+                                disabled={isUploading}
+                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isUploading ? "Uploading..." : `Upload ${selectedFile.name}`}
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <div className="col-span-4 lg:col-span-2">
                     {imageUrl && (

@@ -6,10 +6,6 @@ import { inter } from '@/app/ui/fonts';
 import {
   ClerkProvider,
   GoogleOneTap,
-  SignInButton,
-  SignedIn,
-  SignedOut,
-  UserButton
 } from '@clerk/nextjs'
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from "@vercel/speed-insights/next"

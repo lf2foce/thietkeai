@@ -1,6 +1,5 @@
 // /pages/index.js (or wherever your HomePage component is located)
 
-import { SignedIn, SignedOut} from "@clerk/nextjs";
 import { auth } from '@clerk/nextjs/server'
 import { db } from "@/app/server/db";
 import Link from "next/link";
@@ -53,21 +52,17 @@ export default async function HomePage() {
     if (!userId) {
         return (
             <main>
-                <SignedOut>
-                    <div className='h-full w-full text-2xl'>
-                        <h1>Sign in to view your images</h1>
-                    </div>
-                </SignedOut>
+                <div className='h-full w-full text-2xl'>
+                    <h1>Sign in to view your images</h1>
+                </div>
             </main>
         );
     }
 
     return (
         <main className="">
-            <SignedIn>
-                <h1 className="text-2xl">Images</h1>
-                <Images />
-            </SignedIn>
+            <h1 className="text-2xl">Images</h1>
+            <Images />
         </main>
     );
 }

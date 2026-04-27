@@ -4,6 +4,9 @@ const nextConfig = {
 
     images: {
         dangerouslyAllowSVG: true,
+        localPatterns: [
+            { pathname: '/**' },
+        ],
         remotePatterns: [
             { hostname: "utfs.io" },
             { hostname: 'replicate.delivery'},
@@ -21,9 +24,6 @@ const nextConfig = {
     typescript: {
         ignoreBuildErrors: true,
     },
-    eslint: {
-        ignoreDuringBuilds: true,
-    }
     
 };
 
