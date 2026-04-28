@@ -14,7 +14,7 @@ export const maxDuration = 60;
 
 interface PredictionState {
     id: string;
-    status: "processing" | "succeeded" | "failed";
+    status: "queued" | "processing" | "succeeded" | "failed";
     theme: themeType;
     resultUrl?: string;
 }
@@ -93,12 +93,29 @@ export default function Page() {
 
             const data = await res.json();
             if (res.status === 200) {
-                setPredictions(prev => ({
-                    ...prev,
-                    [data.id]: { id: data.id, status: "processing", theme }
-                }));
+                setPredictions(prev => {
+                    const next = { ...prev };
+                    // Remove temporary placeholders for this theme
+                    Object.keys(next).forEach(key => {
+                        if (key.startsWith('temp_') && next[key].theme === theme) {
+                            delete next[key];
+                        }
+                    });
+                    next[data.id] = { id: data.id, status: "processing", theme };
+                    return next;
+                });
             } else {
                 setError(data.error || `Failed to start generation for ${theme}`);
+                // Also cleanup temp on error
+                setPredictions(prev => {
+                    const next = { ...prev };
+                    Object.keys(next).forEach(key => {
+                        if (key.startsWith('temp_') && next[key].theme === theme) {
+                            delete next[key];
+                        }
+                    });
+                    return next;
+                });
             }
         } catch (err) {
             console.error(err);
@@ -144,6 +161,7 @@ export default function Page() {
                 setOriginalImageId(res[0].key);
 
                 setIsGenerating(true);
+                // Real triggers will replace temp placeholders inside generatePhoto
                 selectedThemes.forEach(theme => {
                     generatePhoto(fileUrl, theme, room);
                 });
@@ -180,11 +198,18 @@ export default function Page() {
         }
 
         setError(null);
-        setPredictions({}); // Clear previous results
+        setIsGenerating(true);
+        
+        // INSTANT UI FEEDBACK: Create placeholder predictions immediately
+        const initialPredictions: Record<string, PredictionState> = {};
+        selectedThemes.forEach(theme => {
+            const tempId = `temp_${theme}_${Date.now()}`;
+            initialPredictions[tempId] = { id: tempId, status: "queued", theme };
+        });
+        setPredictions(initialPredictions);
 
         if (imageUrl) {
-            // Skip upload, just generate
-            setIsGenerating(true);
+            // Parallel generation triggers
             selectedThemes.forEach(theme => {
                 generatePhoto(imageUrl, theme, room);
             });
@@ -354,16 +379,30 @@ export default function Page() {
                             {Object.values(predictions).map((p) => (
                                 <div key={p.id} className="group space-y-6">
                                     <div className="relative aspect-square rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 transition-all shadow-md hover:shadow-[0_40px_80px_rgba(0,0,0,0.12)] hover:-translate-y-2">
-                                        {p.status === "processing" ? (
+                                        {(p.status === "processing" || p.status === "queued") ? (
                                             <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-gray-50/30 backdrop-blur-sm">
-                                                <div className="w-16 h-16 border-[5px] border-gray-100 border-t-gray-900 rounded-full animate-spin mb-6" />
+                                                {p.status === "processing" ? (
+                                                    <div className="w-16 h-16 border-[5px] border-gray-100 border-t-gray-900 rounded-full animate-spin mb-6" />
+                                                ) : (
+                                                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                                                        <div className="w-8 h-8 bg-gray-200 rounded-full" />
+                                                    </div>
+                                                )}
                                                 <div className="space-y-1">
-                                                    <p className="text-xs font-black text-gray-900 uppercase tracking-widest">Processing</p>
+                                                    <p className="text-xs font-black text-gray-900 uppercase tracking-widest">
+                                                        {p.status === "processing" ? "Architectural Rendering" : "Queued in Studio"}
+                                                    </p>
                                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{p.theme}</p>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <Image src={p.resultUrl || ""} alt="Result" fill className="object-cover" />
+                                            p.resultUrl ? (
+                                                <Image src={p.resultUrl} alt="Result" fill className="object-cover" />
+                                            ) : (
+                                                <div className="absolute inset-0 bg-gray-50 flex items-center justify-center text-center p-6">
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-relaxed">Image data unavailable or generation failed</p>
+                                                </div>
+                                            )
                                         )}
                                     </div>
                                     

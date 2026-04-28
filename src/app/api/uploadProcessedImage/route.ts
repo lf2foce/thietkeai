@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { UTApi } from "uploadthing/server";
+import { UTApi, UTFile } from "uploadthing/server";
 import { db } from "@/app/server/db";
 import { images } from "@/app/server/db/schema";
 
@@ -16,6 +16,8 @@ export async function POST(req: Request) {
     }
     const { imageUrl, originalImageId } = await req.json();
     const fileName = `processed_image_${Date.now()}.jpg`;
+    // Generate a unique customId to avoid duplicate rejection when multiple themes share the same originalImageId
+    const uniqueCustomId = `${originalImageId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     let uploadedImage;
 
@@ -24,9 +26,12 @@ export async function POST(req: Request) {
       const base64Data = imageUrl.split(',')[1];
       const buffer = Buffer.from(base64Data, 'base64');
       
-      // Create a File-like object or use the buffer directly if utapi supports it
-      // utapi.uploadFiles expects an array of files
-      const file = new File([buffer], fileName, { type: 'image/jpeg' });
+      // Use UTFile with correct MIME type and unique customId
+      const file = new UTFile([buffer], fileName, { 
+        type: 'image/jpeg',
+        customId: uniqueCustomId 
+      });
+      
       const response = await utapi.uploadFiles([file]);
       uploadedImage = response[0];
     } else {

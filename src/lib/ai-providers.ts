@@ -7,12 +7,12 @@ export interface GenerationResult {
 }
 
 export interface AIProvider {
-  generate(imageUrl: string, prompt: string): Promise<{ id: string }>;
+  generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string }>;
   getStatus(id: string): Promise<GenerationResult>;
 }
 
 export class ReplicateProvider implements AIProvider {
-  async generate(imageUrl: string, prompt: string): Promise<{ id: string }> {
+  async generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string }> {
     const response = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
@@ -23,7 +23,7 @@ export class ReplicateProvider implements AIProvider {
         version: "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38",
         input: {
           image: imageUrl,
-          prompt: prompt,
+          prompt: `${room ? room + " " : ""}${prompt}`,
           guidance_scale: 15,
           negative_prompt: "lowres, watermark, banner, logo, watermark, contactinfo, text, deformed, blurry, blur, out of focus, out of frame, surreal, extra, ugly, upholstered walls, fabric walls, plush walls, mirror, mirrored, functional, realistic",
           prompt_strength: 0.8,
@@ -76,16 +76,14 @@ export class GoogleGenAIProvider implements AIProvider {
     });
   }
 
-  async generate(imageUrl: string, prompt: string): Promise<{ id: string }> {
+  async generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string }> {
     // For Google, we'll perform the generation in the status check or here.
     // To maintain the polling structure, we return a "job ID" that encodes the parameters.
     // Or we just trigger it now and cache the result.
     const id = `google_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     
     // Trigger generation asynchronously (background task simulated via the fact that the first getStatus will trigger it)
-    // Actually, in Next.js, we can't easily do background tasks without a worker.
-    // So we'll just store the request params and have getStatus do the work if it's the first time.
-    googleResultsCache.set(id, JSON.stringify({ imageUrl, prompt, status: "pending" }));
+    googleResultsCache.set(id, JSON.stringify({ imageUrl, prompt, room, status: "pending" }));
     
     return { id };
   }

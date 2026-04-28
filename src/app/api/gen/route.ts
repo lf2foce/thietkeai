@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { NextRequest } from 'next/server';
 import { getProvider } from "@/lib/ai-providers";
 
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 const roomPrompts = {
   Bedroom: {
     Modern: "A modern bedroom featuring a sleek design with a low-profile bed, minimalist decor, and soft lighting.",
@@ -95,7 +98,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const provider = getProvider();
-    const { id } = await provider.generate(imageUrl, prompt);
+    const { id } = await provider.generate(imageUrl, prompt, room);
     return NextResponse.json({ id });
   } catch (error: any) {
     console.error("Error in POST request:", error);
