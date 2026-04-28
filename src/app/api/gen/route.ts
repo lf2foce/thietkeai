@@ -139,9 +139,13 @@ function buildPrompt(room: string, theme: string, roomCondition: "raw" | "finish
 }
 
 export async function POST(request: NextRequest) {
-  const { imageUrl, imageUrls: multipleUrls, theme, room, roomCondition } = await request.json();
+  const { imageUrl, imageUrls: multipleUrls, theme, room, roomCondition, customPrompt } = await request.json();
   const condition: "raw" | "finished" = roomCondition === "finished" ? "finished" : "raw";
-  const prompt = buildPrompt(room, theme, condition);
+  let prompt = buildPrompt(room, theme, condition);
+  
+  if (customPrompt) {
+      prompt += `\n\nUSER SPECIFIC INSTRUCTIONS: ${customPrompt}`;
+  }
 
   const imagesToProcess = multipleUrls || imageUrl;
 

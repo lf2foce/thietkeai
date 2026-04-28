@@ -37,6 +37,7 @@ export default function Page() {
     const [predictions, setPredictions] = useState<Record<string, PredictionState>>({});
     const [isUploading, setIsUploading] = useState(false);
     const [modalImage, setModalImage] = useState<string | null>(null);
+    const [customPrompt, setCustomPrompt] = useState("");
     const [isPending, startTransition] = useTransition();
 
     // Derived: true while any prediction is still queued
@@ -50,17 +51,20 @@ export default function Page() {
         return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     });
 
-    // Cleanup object URLs to prevent memory leaks
+    // Ref to hold current blob URLs for unmount cleanup
+    const urlsRef = useRef<string[]>([]);
+    useEffect(() => {
+        urlsRef.current = [...previewUrls, ...(previewUrl ? [previewUrl] : [])];
+    }, [previewUrls, previewUrl]);
+
+    // Cleanup object URLs only on component unmount to prevent memory leaks
     useEffect(() => {
         return () => {
-            if (previewUrl && previewUrl.startsWith('blob:')) {
-                URL.revokeObjectURL(previewUrl);
-            }
-            previewUrls.forEach(url => {
+            urlsRef.current.forEach(url => {
                 if (url.startsWith('blob:')) URL.revokeObjectURL(url);
             });
         };
-    }, [previewUrl, previewUrls]);
+    }, []);
 
     const toggleTheme = useCallback((theme: themeType) => {
         startTransition(() => {
@@ -85,9 +89,12 @@ export default function Page() {
         }
     }
 
-    async function generatePhoto(fileUrl: string | string[], theme: themeType, room: roomType, origImageId: string | null) {
+    async function generatePhoto(fileUrl: string | string[], theme: themeType | string, room: roomType, origImageId: string | null) {
         try {
             const body: any = { theme, room, roomCondition };
+            if (renderMode === 'style-ref' && customPrompt.trim() !== '') {
+                body.customPrompt = customPrompt.trim();
+            }
             if (Array.isArray(fileUrl)) {
                 body.imageUrls = fileUrl;
             } else {
@@ -372,7 +379,7 @@ export default function Page() {
                                 {renderMode === 'style-ref' && previewUrls.length > 0 ? (
                                     <div className="grid grid-cols-2 gap-2">
                                         {previewUrls.map((url, i) => (
-                                            <div key={i} className={clsx(
+                                            <div key={url} className={clsx(
                                                 "relative aspect-square rounded-lg overflow-hidden ring-1 ring-gray-100 group",
                                                 i === 0 ? "ring-2 ring-gray-900 shadow-lg" : ""
                                             )}>
@@ -495,6 +502,19 @@ export default function Page() {
                                     </div>
                                 ))}
                             </div>
+                        </section>
+                    )}
+
+                    {/* 4. Custom Prompt - Only show in Style Ref mode */}
+                    {renderMode === 'style-ref' && (
+                        <section className="space-y-4">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">4. Custom Prompt (Optional)</label>
+                            <textarea
+                                value={customPrompt}
+                                onChange={(e) => setCustomPrompt(e.target.value)}
+                                placeholder="E.g. Make it cozy with warm lighting, add some indoor plants..."
+                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl p-4 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:border-gray-900 focus:ring-0 transition-all resize-none h-24"
+                            />
                         </section>
                     )}
 
