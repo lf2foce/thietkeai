@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useTransition, useCallback } from "react";
 import DropDown from "@/app/(dashboard)/_components/DropDown";
 import { roomType, rooms, themeType, themes, qualityType, qualities } from "@/utils/dropdownTypes";
 import { uploadProcessedImage } from "@/utils/uploadProcessedImage";
-import { CheckIcon } from "@heroicons/react/20/solid";
+import { CheckIcon, TrashIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 
 export const dynamic = "force-dynamic";
@@ -143,7 +143,6 @@ export default function Page() {
                 setImageUrl(fileUrl);
                 setOriginalImageId(res[0].key);
                 
-                // Trigger generations for all selected themes
                 setIsGenerating(true);
                 selectedThemes.forEach(theme => {
                     generatePhoto(fileUrl, theme, room);
@@ -166,12 +165,12 @@ export default function Page() {
         
         setSelectedFile(file);
         setPreviewUrl(URL.createObjectURL(file));
-        // Reset predictions when new file is selected
+        setImageUrl(null); // Reset uploaded URL when new file selected
         setPredictions({});
     }, [previewUrl]);
 
     const handleUpload = useCallback(async () => {
-        if (!selectedFile) {
+        if (!selectedFile && !imageUrl) {
             setError("Please select an image first.");
             return;
         }
@@ -179,10 +178,31 @@ export default function Page() {
             setError("Please select at least one theme.");
             return;
         }
+        
         setError(null);
         setPredictions({}); // Clear previous results
-        await startUpload([selectedFile], { design: 'interior', type: 'original' });
-    }, [selectedFile, selectedThemes, startUpload]);
+
+        if (imageUrl) {
+            // Skip upload, just generate
+            setIsGenerating(true);
+            selectedThemes.forEach(theme => {
+                generatePhoto(imageUrl, theme, room);
+            });
+        } else if (selectedFile) {
+            // Need to upload
+            await startUpload([selectedFile], { design: 'interior', type: 'original' });
+        }
+    }, [selectedFile, imageUrl, selectedThemes, startUpload, room]);
+
+    const clearImage = () => {
+        setImageUrl(null);
+        setSelectedFile(null);
+        if (previewUrl && previewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(previewUrl);
+        }
+        setPreviewUrl(null);
+        setPredictions({});
+    };
 
     return (
         <div className="max-w-[1600px] mx-auto p-4 md:p-8">
@@ -251,18 +271,34 @@ export default function Page() {
                 {/* Right Column: Upload & Results (2/3) */}
                 <div className="lg:col-span-2 space-y-12">
                     {/* Step 4: Upload & Render */}
-                    <section className="space-y-6 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-                        <h2 className="text-xl font-bold text-gray-900">(4) Upload & Render</h2>
-                        <div className="space-y-6">
-                            <div className="relative group">
-                                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 px-6 py-12 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-16 h-16 text-gray-300 group-hover:text-blue-400 transition-colors">
-                                        <path fillRule="evenodd" d="M10.5 3.75a6 6 0 00-5.98 6.496A5.25 5.25 0 006.75 20.25H18a4.5 4.5 0 001.106-8.865 6 6 0 00-8.606-7.635zM12 8.25a.75.75 0 01.75.75v4.59l1.22-1.22a.75.75 0 111.06 1.06l-2.5 2.5a.75.75 0 01-1.06 0l-2.5-2.5a.75.75 0 111.06-1.06l1.22 1.22V9a.75.75 0 01.75-.75z" clipRule="evenodd" />
-                                    </svg>
-                                    <label className="mt-4 cursor-pointer">
-                                        <span className="text-xl font-bold text-gray-900 block">
-                                            {selectedFile ? selectedFile.name : "Choose a file or drag and drop"}
-                                        </span>
+                    <section className="bg-white p-6 md:p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-gray-900">(4) Upload & Render</h2>
+                            {imageUrl && (
+                                <button 
+                                    onClick={clearImage}
+                                    className="flex items-center gap-2 text-red-500 hover:text-red-600 text-sm font-bold transition-colors"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                    Clear All
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-center gap-8">
+                            {/* Upload Area */}
+                            <div className={clsx(
+                                "flex-1 w-full transition-all duration-300",
+                                (imageUrl || previewUrl) ? "max-w-[300px]" : "w-full"
+                            )}>
+                                {!imageUrl && !previewUrl ? (
+                                    <div 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="group cursor-pointer flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 py-10 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30"
+                                    >
+                                        <ArrowUpTrayIcon className="w-10 h-10 text-gray-300 group-hover:text-blue-400 transition-colors" />
+                                        <p className="mt-3 text-sm font-bold text-gray-900">Upload a photo</p>
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Image (max 4MB)</p>
                                         <input
                                             ref={fileInputRef}
                                             type="file"
@@ -270,59 +306,93 @@ export default function Page() {
                                             className="sr-only"
                                             onChange={handleFileSelect}
                                         />
-                                    </label>
-                                    <p className="mt-1 text-sm text-gray-400">Image (max 4MB)</p>
-                                    
-                                    {previewUrl && (
-                                        <div className="mt-8 relative w-48 h-48 rounded-2xl overflow-hidden ring-4 ring-blue-500 ring-offset-4 shadow-2xl">
-                                            <Image 
-                                                src={previewUrl} 
-                                                alt="Preview" 
-                                                fill 
-                                                className="object-cover" 
-                                            />
+                                    </div>
+                                ) : (
+                                    <div className="relative group rounded-2xl overflow-hidden ring-1 ring-gray-100 shadow-lg aspect-square w-full">
+                                        <Image 
+                                            src={previewUrl || imageUrl || ""} 
+                                            alt="Preview" 
+                                            fill 
+                                            className="object-cover" 
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <button 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="bg-white text-gray-900 px-4 py-2 rounded-full text-xs font-black shadow-xl"
+                                            >
+                                                Change Photo
+                                            </button>
                                         </div>
-                                    )}
-                                </div>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            className="sr-only"
+                                            onChange={handleFileSelect}
+                                        />
+                                        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
+                                            <p className="text-[10px] font-black text-gray-900 uppercase">Original Room</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
+                            {/* Render Button Section */}
+                            <div className="flex-1 w-full space-y-4">
                                 <button
                                     onClick={handleUpload}
-                                    disabled={isUploading || isGenerating || !selectedFile}
-                                    className="w-full sm:w-auto px-10 py-4 bg-[#e12d2d] text-white text-xl font-black rounded-2xl hover:bg-[#c12525] transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-red-200"
+                                    disabled={isUploading || isGenerating || (!selectedFile && !imageUrl)}
+                                    className="w-full py-4 bg-[#e12d2d] text-white text-xl font-black rounded-2xl hover:bg-[#c12525] transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-red-100 flex items-center justify-center gap-3"
                                 >
-                                    {isUploading ? "Uploading..." : isGenerating ? "Generating..." : "Render designs"}
+                                    {isUploading ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span>Uploading...</span>
+                                        </>
+                                    ) : isGenerating ? (
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span>Generating...</span>
+                                        </>
+                                    ) : (
+                                        <span>Render designs</span>
+                                    )}
                                 </button>
-                                <div className="text-lg font-bold text-gray-600 flex items-center gap-2">
-                                    <span>Cost:</span>
-                                    <span className="bg-gray-100 px-3 py-1 rounded-lg text-gray-900">
+                                
+                                <div className="flex items-center justify-between px-2">
+                                    <div className="text-sm font-bold text-gray-400 uppercase tracking-widest">
+                                        Estimated Cost
+                                    </div>
+                                    <div className="bg-gray-50 px-4 py-1.5 rounded-xl border border-gray-100 text-gray-900 font-black text-sm">
                                         {selectedThemes.length > 0 ? selectedThemes.length * 2 : 2} credits
-                                    </span>
+                                    </div>
                                 </div>
-                            </div>
 
-                            {error && (
-                                <p className="text-red-500 font-bold text-center">{error}</p>
-                            )}
+                                {error && (
+                                    <p className="text-red-500 font-bold text-center text-sm animate-shake">{error}</p>
+                                )}
+                            </div>
                         </div>
                     </section>
 
                     {/* Results Section */}
-                    {(Object.keys(predictions).length > 0 || imageUrl) && (
+                    {(Object.keys(predictions).length > 0) && (
                         <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-6">
                                 <h2 className="text-2xl font-black text-gray-900">Generated Results</h2>
+                                <span className="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">
+                                    {Object.values(predictions).filter(p => p.status === 'succeeded').length} / {Object.keys(predictions).length} Completed
+                                </span>
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 {Object.values(predictions).map((p) => (
-                                    <div key={p.id} className="space-y-4">
-                                        <div className="relative aspect-[16/10] rounded-[2rem] overflow-hidden shadow-xl ring-1 ring-gray-100 bg-gray-50">
+                                    <div key={p.id} className="group space-y-4">
+                                        <div className="relative aspect-[16/10] rounded-[2.5rem] overflow-hidden shadow-2xl ring-1 ring-gray-100 bg-gray-50 transition-transform duration-500 hover:scale-[1.02]">
                                             {p.status === "processing" ? (
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4">
-                                                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                                    <p className="text-sm font-bold text-gray-500 animate-pulse">Rendering {p.theme}...</p>
+                                                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin shadow-inner"></div>
+                                                    <p className="text-sm font-black text-gray-400 animate-pulse uppercase tracking-widest">Rendering {p.theme}...</p>
                                                 </div>
                                             ) : p.status === "succeeded" && p.resultUrl ? (
                                                 <>
@@ -332,42 +402,32 @@ export default function Page() {
                                                         fill 
                                                         className="object-cover" 
                                                     />
-                                                    <button 
-                                                        onClick={() => window.open(p.resultUrl, '_blank')}
-                                                        className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-white transition-colors"
-                                                    >
-                                                        Download
-                                                    </button>
+                                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-6">
+                                                        <button 
+                                                            onClick={() => window.open(p.resultUrl, '_blank')}
+                                                            className="bg-white/95 backdrop-blur-md text-gray-900 px-6 py-3 rounded-2xl text-xs font-black shadow-2xl hover:scale-105 transition-transform"
+                                                        >
+                                                            Download High-Res
+                                                        </button>
+                                                    </div>
                                                 </>
                                             ) : (
                                                 <div className="absolute inset-0 flex items-center justify-center">
-                                                    <p className="text-red-500 font-bold">Failed to generate</p>
+                                                    <p className="text-red-500 font-bold uppercase tracking-widest text-xs">Generation failed</p>
                                                 </div>
                                             )}
                                         </div>
-                                        <p className="text-center text-gray-600 font-bold uppercase tracking-wider text-xs">
-                                            {p.theme} {room}
-                                        </p>
+                                        <div className="text-center space-y-1">
+                                            <p className="text-gray-900 font-black uppercase tracking-tight text-sm">
+                                                {p.theme} {room}
+                                            </p>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                                AI Generated Concept
+                                            </p>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-
-                            {imageUrl && (
-                                <div className="pt-12 border-t border-gray-100">
-                                    <div className="max-w-md mx-auto w-full space-y-4 opacity-40 hover:opacity-100 transition-opacity">
-                                        <p className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Original Reference</p>
-                                        <div className="relative aspect-[16/10] rounded-3xl overflow-hidden shadow-md border border-gray-100">
-                                            <Image 
-                                                src={imageUrl} 
-                                                alt="Original" 
-                                                fill 
-                                                sizes="(max-width: 768px) 100vw, 500px"
-                                                className="object-cover" 
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </section>
                     )}
                 </div>
