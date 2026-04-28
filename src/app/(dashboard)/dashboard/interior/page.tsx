@@ -242,14 +242,14 @@ export default function Page() {
                         {!imageUrl && !previewUrl ? (
                             <div
                                 onClick={() => fileInputRef.current?.click()}
-                                className="group cursor-pointer flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 py-12 transition-all hover:border-gray-900 hover:bg-white"
+                                className="group cursor-pointer flex flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-gray-200 py-12 transition-all hover:border-gray-900 hover:bg-white"
                             >
                                 <ArrowUpTrayIcon className="w-8 h-8 text-gray-300 group-hover:text-gray-900 transition-colors" />
                                 <p className="mt-3 text-[10px] font-black text-gray-400 uppercase">Click to upload</p>
                                 <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileSelect} />
                             </div>
                         ) : (
-                            <div className="relative group rounded-2xl overflow-hidden ring-1 ring-gray-100 aspect-[4/3] w-full">
+                            <div className="relative group rounded-[2rem] overflow-hidden ring-1 ring-gray-100 aspect-[4/3] w-full">
                                 <Image src={previewUrl || imageUrl || ""} alt="Preview" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-white uppercase border border-white/50 px-6 py-2.5 rounded-2xl backdrop-blur-md hover:bg-white hover:text-black transition-all">Change Photo</button>
@@ -319,7 +319,7 @@ export default function Page() {
                         <button
                             onClick={handleUpload}
                             disabled={isUploading || isGenerating || (!selectedFile && !imageUrl)}
-                            className="w-full py-5 bg-gray-900 text-white text-base font-black rounded-2xl hover:bg-black transition-all transform active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-3"
+                            className="w-full py-5 bg-gray-900 text-white text-base font-black rounded-[2rem] hover:bg-black transition-all transform active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-3"
                         >
                             {isUploading || isGenerating ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -364,7 +364,7 @@ export default function Page() {
                             {/* Predictions in theme order */}
                             {sortedPredictions.map((p) => (
                                 <div key={p.id} className="group space-y-4">
-                                    <div className="relative aspect-square rounded-2xl overflow-hidden bg-white border border-gray-100">
+                                    <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-white border border-gray-100">
                                         {p.status === "queued" ? (
                                             <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-gray-50">
                                                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-5 animate-pulse">
@@ -390,7 +390,7 @@ export default function Page() {
                                     <div className="flex items-center justify-between px-2">
                                         <div className="space-y-0.5">
                                             <p className="text-sm font-black text-gray-900 uppercase tracking-tight">{p.theme}</p>
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{room}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{room} • AI Generated</p>
                                         </div>
                                         {p.status === "succeeded" && p.resultUrl && (
                                             <button
@@ -410,7 +410,7 @@ export default function Page() {
                                 .filter(themeName => !sortedPredictions.some(p => p.theme === themeName))
                                 .map((themeName) => (
                                     <div key={themeName} className="space-y-4 opacity-50">
-                                        <div className="relative aspect-square rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
+                                        <div className="relative aspect-square rounded-[2rem] border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
                                             <div className="text-center space-y-2">
                                                 <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto flex items-center justify-center border border-gray-200">
                                                     <Image src={themes.find(t => t.name === themeName)?.image || ""} alt="Draft" width={24} height={24} className="opacity-40 grayscale rounded-lg" />
@@ -420,14 +420,14 @@ export default function Page() {
                                         </div>
                                         <div className="px-2 space-y-0.5">
                                             <p className="text-sm font-black text-gray-400 uppercase tracking-tight">{themeName}</p>
-                                            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">{room}</p>
+                                            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">{room} • Pending</p>
                                         </div>
                                     </div>
                                 ))}
 
                             {/* Empty state */}
                             {selectedThemes.length === 0 && Object.keys(predictions).length === 0 && (
-                                <div className="col-span-full h-[60vh] flex flex-col items-center justify-center bg-white rounded-2xl border border-gray-100 text-center">
+                                <div className="col-span-full h-[60vh] flex flex-col items-center justify-center bg-white rounded-[3rem] border border-gray-100 text-center">
                                     <div className="relative w-48 h-48 mb-8">
                                         <Image src="/images/demo-industrial.png" alt="Workspace" fill sizes="192px" className="object-contain" />
                                     </div>
