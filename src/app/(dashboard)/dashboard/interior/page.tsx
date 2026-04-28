@@ -2,13 +2,15 @@
 
 import Image from "next/image";
 import { useUploadThing } from "@/utils/uploadthing";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useTransition, useCallback } from "react";
 import DropDown from "@/app/(dashboard)/_components/DropDown";
-import { roomType, rooms, themeType, themes } from "@/utils/dropdownTypes";
+import { roomType, rooms, themeType, themes, qualityType, qualities } from "@/utils/dropdownTypes";
 import { uploadProcessedImage } from "@/utils/uploadProcessedImage";
+import { CheckIcon } from "@heroicons/react/20/solid";
+import clsx from "clsx";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; 
+export const maxDuration = 60;
 
 export default function Page() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -17,12 +19,14 @@ export default function Page() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [originalImageId, setOriginalImageId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [theme, setTheme] = useState<themeType>("Modern");
     const [room, setRoom] = useState<roomType>("Living Room");
+    const [quality, setQuality] = useState<qualityType>("Pro - 2 credits");
+    const [selectedThemes, setSelectedThemes] = useState<themeType[]>(["Modern"]);
     const [restoredImage, setRestoredImage] = useState("");
     const [predictionId, setPredictionId] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
         if (predictionId) {
@@ -34,20 +38,36 @@ export default function Page() {
         }
     }, [predictionId]);
 
+    // Cleanup object URL to prevent memory leaks
+    useEffect(() => {
+        return () => {
+            if (previewUrl && previewUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(previewUrl);
+            }
+        };
+    }, [previewUrl]);
+
+    const toggleTheme = useCallback((theme: themeType) => {
+        startTransition(() => {
+            setSelectedThemes((prev) => {
+                if (prev.includes(theme)) {
+                    return prev.filter((t) => t !== theme);
+                } else if (prev.length < 4) {
+                    return [...prev, theme];
+                }
+                return prev;
+            });
+        });
+    }, []);
+
     async function runTest(imageUrl: string, originalImageId: string) {
         setError(null);
-
         if (originalImageId) {
-            // console.log("Attempting to upload processed image. URL:", imageUrl);
             try {
-                const processedUrl = await uploadProcessedImage(imageUrl, originalImageId);
-                // console.log('Processed image uploaded successfully: from processed image to', processedUrl);
+                await uploadProcessedImage(imageUrl, originalImageId);
             } catch (error) {
                 console.error("Failed to upload processed image:", error);
-                setError("Failed to save the processed image. Please try again. Error: " + (error instanceof Error ? error.message : String(error)));
             }
-        } else {
-            console.log("Not uploading processed image. originalImageId:", originalImageId);
         }
     }
 
@@ -83,21 +103,16 @@ export default function Page() {
         try {
             const res = await fetch(`/api/gen?id=${id}`);
             const data = await res.json();
-            // console.log("Prediction status response:", data);
 
             if (data.status === "succeeded") {
                 const imageUrl = Array.isArray(data.restoredImage) ? data.restoredImage[0] : data.restoredImage;
                 setRestoredImage(imageUrl);
                 setIsGenerating(false);
                 setPredictionId(null);
-
-                // Keep the preview URL as the processed image URL
                 setPreviewUrl(imageUrl);
 
                 if (imageUrl && originalImageId) {
                     runTest(imageUrl, originalImageId);
-                } else {
-                    console.log("Not uploading processed image. originalImageId is missing.");
                 }
             } else if (data.status === "failed") {
                 setError("Image generation failed. Please try again.");
@@ -105,14 +120,8 @@ export default function Page() {
                 setPredictionId(null);
             } else if (data.status === "processing") {
                 console.log("Still processing...");
-            } else {
-                console.log("Unexpected status:", data.status);
-                setError("Unexpected status received from the server.");
-                setIsGenerating(false);
-                setPredictionId(null);
             }
         } catch (err) {
-            console.error("Error in checkPredictionStatus:", err);
             setError("An error occurred while checking the prediction status.");
             setIsGenerating(false);
             setPredictionId(null);
@@ -126,7 +135,7 @@ export default function Page() {
             if (res?.[0].url) {
                 setImageUrl(res[0].url);
                 setOriginalImageId(res[0].key);
-                generatePhoto(res[0].url, theme, room);
+                generatePhoto(res[0].url, selectedThemes[0] || "Modern", room);
             }
         },
         onUploadError: (err) => {
@@ -135,119 +144,205 @@ export default function Page() {
         },
     });
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        
+        // Revoke old URL if it exists
+        if (previewUrl && previewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(previewUrl);
+        }
+        
         setSelectedFile(file);
         setPreviewUrl(URL.createObjectURL(file));
-    };
+    }, [previewUrl]);
 
-    const handleUpload = async () => {
-        if (!selectedFile) return;
+    const handleUpload = useCallback(async () => {
+        if (!selectedFile) {
+            setError("Please select an image first.");
+            return;
+        }
+        if (selectedThemes.length === 0) {
+            setError("Please select at least one theme.");
+            return;
+        }
         await startUpload([selectedFile], { design: 'interior', type: 'original' });
-    };
+    }, [selectedFile, selectedThemes, startUpload]);
 
     return (
-        <div className="mx-auto p-4 items-center justify-center">
-            <div className="grid grid-cols-3 gap-6">
-                <div className="col-span-4 lg:col-span-1">
-                    <div className="space-y-4 w-full">
-                        <p className="text-left font-medium">(1) Choose your room type.</p>
+        <div className="max-w-[1600px] mx-auto p-4 md:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
+                {/* Left Column: Parameters (1/3) */}
+                <div className="space-y-10 lg:sticky lg:top-8">
+                    {/* Step 1: Room Type */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-gray-900">(1) Select Room Type</h2>
                         <DropDown
-                          theme={room}
-                          setTheme={(newRoom) => setRoom(newRoom as roomType)}
-                          themes={rooms}
+                            theme={room}
+                            setTheme={(newRoom) => startTransition(() => setRoom(newRoom as roomType))}
+                            themes={rooms}
                         />
-                        <p className="text-left font-medium">(2) Choose your room theme.</p>
+                    </section>
+
+                    {/* Step 2: Quality */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-gray-900">(2) Select Quality</h2>
                         <DropDown
-                          theme={theme}
-                          setTheme={(newTheme) => setTheme(newTheme as themeType)}
-                          themes={themes}
+                            theme={quality}
+                            setTheme={(newQuality) => startTransition(() => setQuality(newQuality as qualityType))}
+                            themes={qualities}
                         />
-                    </div>
-                    <p className="text-left font-medium mt-4">(3) Upload your photo.</p>
-                    <div className="mt-2 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-8 text-center gap-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="mx-auto h-12 w-12 text-gray-400">
-                            <path fill="currentColor" fillRule="evenodd" d="M5.5 17a4.5 4.5 0 0 1-1.44-8.765a4.5 4.5 0 0 1 8.302-3.046a3.5 3.5 0 0 1 4.504 4.272A4 4 0 0 1 15 17H5.5Zm3.75-2.75a.75.75 0 0 0 1.5 0V9.66l1.95 2.1a.75.75 0 1 0 1.1-1.02l-3.25-3.5a.75.75 0 0 0-1.1 0l-3.25 3.5a.75.75 0 1 0 1.1 1.02l1.95-2.1v4.59Z" clipRule="evenodd" />
-                        </svg>
-                        <label className="cursor-pointer text-sm font-semibold text-blue-600 hover:text-blue-500">
-                            {selectedFile ? selectedFile.name : "Choose a file or drag and drop"}
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                className="sr-only"
-                                onChange={handleFileSelect}
-                            />
-                        </label>
-                        <p className="text-xs text-gray-600">Image (4MB)</p>
-                        {previewUrl && (
-                            <img src={previewUrl} alt="Preview" className="w-24 h-24 object-cover rounded-md" />
-                        )}
-                        {selectedFile && (
-                            <button
-                                onClick={handleUpload}
-                                disabled={isUploading || isGenerating}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isUploading ? "Uploading..." : isGenerating ? "Generating..." : `Upload ${selectedFile.name}`}
-                            </button>
-                        )}
-                    </div>
+                    </section>
+
+                    {/* Step 3: Room Themes */}
+                    <section className="space-y-6">
+                        <h2 className="text-xl font-bold text-gray-900">(3) Select Room Themes (up to 4)</h2>
+                        <div className={clsx("grid grid-cols-3 gap-3 transition-opacity duration-200", isPending && "opacity-70")}>
+                            {themes.map((t) => (
+                                <div 
+                                    key={t.name}
+                                    onClick={() => toggleTheme(t.name)}
+                                    className="group cursor-pointer space-y-1.5"
+                                >
+                                    <div className={clsx(
+                                        "relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-200",
+                                        selectedThemes.includes(t.name) ? "border-blue-500 scale-105 shadow-md" : "border-transparent group-hover:border-gray-200"
+                                    )}>
+                                        <Image 
+                                            src={t.image} 
+                                            alt={t.name}
+                                            fill
+                                            sizes="(max-width: 768px) 33vw, 10vw"
+                                            className="object-cover"
+                                        />
+                                        {selectedThemes.includes(t.name) && (
+                                            <div className="absolute top-1.5 right-1.5 bg-blue-500 rounded-full p-0.5">
+                                                <CheckIcon className="w-3 h-3 text-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className={clsx(
+                                        "text-[10px] sm:text-xs font-bold text-center transition-colors uppercase tracking-tight",
+                                        selectedThemes.includes(t.name) ? "text-blue-600" : "text-gray-500"
+                                    )}>
+                                        {t.name}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
                 </div>
-                <div className="col-span-4 lg:col-span-2">
-                    {imageUrl && (
-                        <div className="mt-4 mx-auto">
-                            <Image
-                                alt="Uploaded"
-                                src={imageUrl}
-                                width={500}
-                                height={500}
-                                className="object-contain rounded-md w-full h-auto"
-                            />
-                        </div>
-                    )}
 
-                    {isUploading && (
-                        <div className="flex justify-center items-center mt-4">
-                            <div className="text-center text-sm text-muted-foreground">
-                                Uploading your image...
+                {/* Right Column: Upload & Results (2/3) */}
+                <div className="lg:col-span-2 space-y-12">
+                    {/* Step 4: Upload & Render */}
+                    <section className="space-y-6 bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+                        <h2 className="text-xl font-bold text-gray-900">(4) Upload & Render</h2>
+                        <div className="space-y-6">
+                            <div className="relative group">
+                                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 px-6 py-12 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-16 h-16 text-gray-300 group-hover:text-blue-400 transition-colors">
+                                        <path fillRule="evenodd" d="M10.5 3.75a6 6 0 00-5.98 6.496A5.25 5.25 0 006.75 20.25H18a4.5 4.5 0 001.106-8.865 6 6 0 00-8.606-7.635zM12 8.25a.75.75 0 01.75.75v4.59l1.22-1.22a.75.75 0 111.06 1.06l-2.5 2.5a.75.75 0 01-1.06 0l-2.5-2.5a.75.75 0 111.06-1.06l1.22 1.22V9a.75.75 0 01.75-.75z" clipRule="evenodd" />
+                                    </svg>
+                                    <label className="mt-4 cursor-pointer">
+                                        <span className="text-xl font-bold text-gray-900 block">
+                                            {selectedFile ? selectedFile.name : "Choose a file or drag and drop"}
+                                        </span>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            className="sr-only"
+                                            onChange={handleFileSelect}
+                                        />
+                                    </label>
+                                    <p className="mt-1 text-sm text-gray-400">Image (max 4MB)</p>
+                                    
+                                    {previewUrl && !restoredImage && (
+                                        <div className="mt-8 relative w-48 h-48 rounded-2xl overflow-hidden ring-4 ring-blue-500 ring-offset-4 shadow-2xl">
+                                            <Image 
+                                                src={previewUrl} 
+                                                alt="Preview" 
+                                                fill 
+                                                className="object-cover" 
+                                            />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
 
-                    {isGenerating && (
-                        <div className="flex justify-center items-center mt-4">
-                            <div className="text-center text-sm text-muted-foreground">
-                                Processing your image...
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
+                                <button
+                                    onClick={handleUpload}
+                                    disabled={isUploading || isGenerating || !selectedFile}
+                                    className="w-full sm:w-auto px-10 py-4 bg-[#e12d2d] text-white text-xl font-black rounded-2xl hover:bg-[#c12525] transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-red-200"
+                                >
+                                    {isUploading ? "Uploading..." : isGenerating ? "Generating..." : "Render designs"}
+                                </button>
+                                <div className="text-lg font-bold text-gray-600 flex items-center gap-2">
+                                    <span>Cost:</span>
+                                    <span className="bg-gray-100 px-3 py-1 rounded-lg text-gray-900">2 credits</span>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                    
-                    {restoredImage && !isGenerating && (
-                        <div className="text-center mt-4">
-                            <div className="text-sm text-muted-foreground">
-                                Here is your remodeled <b>{room.toLowerCase()}</b> in the <b>{theme.toLowerCase()}</b> theme!
-                            </div>
-                            <div className="relative mt-4 mx-auto">
-                                <Image
-                                    alt="Restored Photo"
-                                    src={restoredImage}
-                                    width={500}
-                                    height={500}
-                                    className="object-contain rounded-md w-full h-auto"
-                                />
-                            </div>
-                        </div>
-                    )}
 
-                    {error && (
-                        <div className="text-red-500 text-center mt-4">
-                            {error}
+                            {error && (
+                                <p className="text-red-500 font-bold text-center">{error}</p>
+                            )}
                         </div>
+                    </section>
+
+                    {/* Results Section */}
+                    {(imageUrl || restoredImage) && (
+                        <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-2xl font-black text-gray-900">Your Remodeled Room</h2>
+                                {restoredImage && (
+                                    <button 
+                                        onClick={() => window.open(restoredImage, '_blank')}
+                                        className="text-blue-600 font-bold hover:underline"
+                                    >
+                                        Download High-Res
+                                    </button>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-1 gap-12">
+                                {restoredImage && (
+                                    <div className="space-y-4">
+                                        <div className="relative aspect-[16/10] rounded-[2.5rem] overflow-hidden shadow-2xl ring-1 ring-gray-100">
+                                            <Image 
+                                                src={restoredImage} 
+                                                alt="Restored" 
+                                                fill 
+                                                priority
+                                                className="object-cover" 
+                                            />
+                                        </div>
+                                        <p className="text-center text-gray-500 font-medium">
+                                            Style: <span className="text-gray-900 font-bold">{selectedThemes[0]}</span> • 
+                                            Room: <span className="text-gray-900 font-bold">{room}</span>
+                                        </p>
+                                    </div>
+                                )}
+                                {imageUrl && (
+                                    <div className="max-w-md mx-auto w-full space-y-4 opacity-60 hover:opacity-100 transition-opacity">
+                                        <p className="text-sm font-bold text-gray-400 text-center uppercase tracking-widest">Original Reference</p>
+                                        <div className="relative aspect-[16/10] rounded-3xl overflow-hidden shadow-lg border border-gray-100">
+                                            <Image 
+                                                src={imageUrl} 
+                                                alt="Original" 
+                                                fill 
+                                                sizes="(max-width: 768px) 100vw, 500px"
+                                                className="object-cover" 
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
                     )}
                 </div>
             </div>
         </div>
     );
 }
+
