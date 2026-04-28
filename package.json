@@ -23,6 +23,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/forms": "^0.5.11",
     "@types/node": "^20.19.39",
+    "@google/genai": "^1.50.1",
     "@uploadthing/react": "^7.3.3",
     "@vercel/analytics": "^1.6.1",
     "@vercel/postgres": "^0.8.0",
@@ -51,8 +52,8 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
-    "@types/react": "18.3.3",
-    "@types/react-dom": "18.3.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "dotenv": "^16.6.1",
     "eslint": "^8.57.1",
     "eslint-config-next": "^16.2.4",
