@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useTransition, useCallback } from "react";
 import DropDown from "@/app/(dashboard)/_components/DropDown";
 import { roomType, rooms, themeType, themes, qualityType, qualities } from "@/utils/dropdownTypes";
 import { uploadProcessedImage } from "@/utils/uploadProcessedImage";
-import { CheckIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
+import { CheckIcon, ArrowUpTrayIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 
 export const dynamic = "force-dynamic";
@@ -167,16 +167,19 @@ export default function Page() {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
-        // Cleanup old previews
-        if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
-        previewUrls.forEach(url => { if (url.startsWith('blob:')) URL.revokeObjectURL(url); });
-
         if (renderMode === 'style-ref') {
-            setSelectedFiles(files);
-            setPreviewUrls(files.map(f => URL.createObjectURL(f)));
-            // Also set first one as main preview for compatibility
-            setPreviewUrl(URL.createObjectURL(files[0]));
+            setSelectedFiles(prev => [...prev, ...files]);
+            const newPreviews = files.map(f => URL.createObjectURL(f));
+            setPreviewUrls(prev => {
+                const combined = [...prev, ...newPreviews];
+                setPreviewUrl(combined[0]); // update main preview for compatibility
+                return combined;
+            });
         } else {
+            // Cleanup old previews
+            if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+            previewUrls.forEach(url => { if (url.startsWith('blob:')) URL.revokeObjectURL(url); });
+
             const file = files[0];
             setSelectedFile(file);
             setPreviewUrl(URL.createObjectURL(file));
@@ -187,7 +190,29 @@ export default function Page() {
         setImageUrl(null);
         setImageUrls([]);
         setPredictions({});
+        
+        // Reset input value so same file can be selected again
+        if (fileInputRef.current) fileInputRef.current.value = '';
     }, [previewUrl, previewUrls, renderMode]);
+
+    const removeFile = useCallback((indexToRemove: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== indexToRemove));
+        setPreviewUrls(prev => {
+            const newUrls = prev.filter((_, i) => i !== indexToRemove);
+            if (prev[indexToRemove] && prev[indexToRemove].startsWith('blob:')) {
+                URL.revokeObjectURL(prev[indexToRemove]);
+            }
+            if (newUrls.length > 0) {
+                setPreviewUrl(newUrls[0]);
+            } else {
+                setPreviewUrl(null);
+            }
+            return newUrls;
+        });
+        setImageUrl(null);
+        setImageUrls([]);
+        setPredictions({});
+    }, []);
 
     const hasSelection = renderMode === 'style-ref' ? (selectedFiles.length > 0 || imageUrls.length > 0) : (!!selectedFile || !!imageUrl);
 
@@ -348,13 +373,19 @@ export default function Page() {
                                     <div className="grid grid-cols-2 gap-2">
                                         {previewUrls.map((url, i) => (
                                             <div key={i} className={clsx(
-                                                "relative aspect-square rounded-lg overflow-hidden ring-1 ring-gray-100",
+                                                "relative aspect-square rounded-lg overflow-hidden ring-1 ring-gray-100 group",
                                                 i === 0 ? "ring-2 ring-gray-900 shadow-lg" : ""
                                             )}>
                                                 <Image src={url} alt={`Preview ${i}`} fill className="object-cover" />
                                                 {i === 0 && (
-                                                    <div className="absolute top-1 left-1 bg-gray-900 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded">Target</div>
+                                                    <div className="absolute top-1 left-1 bg-gray-900 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded pointer-events-none">Target</div>
                                                 )}
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                                                    className="absolute top-1 right-1 bg-black/40 hover:bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all z-10"
+                                                >
+                                                    <XMarkIcon className="w-3 h-3" />
+                                                </button>
                                             </div>
                                         ))}
                                         <button 

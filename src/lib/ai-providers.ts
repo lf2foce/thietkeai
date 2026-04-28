@@ -78,11 +78,12 @@ export class GoogleGenAIProvider implements AIProvider {
     const imageParts = await Promise.all(imageUrls.map(async (url, index) => {
       try {
         const imageRes = await fetch(url);
+        const mimeType = imageRes.headers.get('content-type') || 'image/jpeg';
         const imageBuffer = await imageRes.arrayBuffer();
         return {
           inlineData: {
             data: Buffer.from(imageBuffer).toString('base64'),
-            mimeType: 'image/jpeg'
+            mimeType: mimeType
           }
         };
       } catch (err) {
