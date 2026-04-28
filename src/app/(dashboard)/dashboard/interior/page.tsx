@@ -37,7 +37,7 @@ export default function Page() {
     // Polling for multiple predictions
     useEffect(() => {
         const activePredictions = Object.values(predictions).filter(p => p.status === "processing");
-        
+
         if (activePredictions.length > 0) {
             const pollInterval = setInterval(() => {
                 activePredictions.forEach(p => checkPredictionStatus(p.id, p.theme));
@@ -113,7 +113,7 @@ export default function Page() {
 
             if (data.status === "succeeded") {
                 const resultUrl = Array.isArray(data.restoredImage) ? data.restoredImage[0] : data.restoredImage;
-                
+
                 setPredictions(prev => ({
                     ...prev,
                     [id]: { ...prev[id], status: "succeeded", resultUrl }
@@ -142,7 +142,7 @@ export default function Page() {
                 const fileUrl = res[0].url;
                 setImageUrl(fileUrl);
                 setOriginalImageId(res[0].key);
-                
+
                 setIsGenerating(true);
                 selectedThemes.forEach(theme => {
                     generatePhoto(fileUrl, theme, room);
@@ -158,11 +158,11 @@ export default function Page() {
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        
+
         if (previewUrl && previewUrl.startsWith('blob:')) {
             URL.revokeObjectURL(previewUrl);
         }
-        
+
         setSelectedFile(file);
         setPreviewUrl(URL.createObjectURL(file));
         setImageUrl(null); // Reset uploaded URL when new file selected
@@ -178,7 +178,7 @@ export default function Page() {
             setError("Please select at least one theme.");
             return;
         }
-        
+
         setError(null);
         setPredictions({}); // Clear previous results
 
@@ -204,14 +204,58 @@ export default function Page() {
         setPredictions({});
     };
 
+    // Helper for robust download
+    const downloadImage = async (url: string, filename: string) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error("Download failed:", error);
+            window.open(url, '_blank');
+        }
+    };
+
     return (
-        <div className="max-w-[1600px] mx-auto p-4 md:p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
-                {/* Left Column: Parameters (1/3) */}
-                <div className="space-y-10 lg:sticky lg:top-8">
-                    {/* Step 1: Room Type */}
-                    <section className="space-y-4">
-                        <h2 className="text-xl font-bold text-gray-900">(1) Select Room Type</h2>
+        <div className="max-w-[1600px] mx-auto p-4 h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start h-full">
+                
+                {/* Flat Sidebar Control (3/12) */}
+                <div className="lg:col-span-4 xl:col-span-3 space-y-8 lg:sticky lg:top-4 px-2">
+                    
+                    {/* 1. Upload */}
+                    <section className="space-y-3">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">1. Original Room</label>
+                        {!imageUrl && !previewUrl ? (
+                            <div 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="group cursor-pointer flex flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-gray-200 py-12 transition-all hover:border-gray-900 hover:bg-white"
+                            >
+                                <ArrowUpTrayIcon className="w-8 h-8 text-gray-300 group-hover:text-gray-900 transition-colors" />
+                                <p className="mt-3 text-[10px] font-black text-gray-400 uppercase">Click to upload</p>
+                                <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileSelect} />
+                            </div>
+                        ) : (
+                            <div className="relative group rounded-[2rem] overflow-hidden ring-1 ring-gray-100 aspect-[4/3] w-full shadow-xl">
+                                <Image src={previewUrl || imageUrl || ""} alt="Preview" fill className="object-cover" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-white uppercase border border-white/50 px-6 py-2.5 rounded-2xl backdrop-blur-md hover:bg-white hover:text-black transition-all">Change Photo</button>
+                                </div>
+                                <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileSelect} />
+                            </div>
+                        )}
+                    </section>
+
+                    {/* 2. Parameters */}
+                    <section className="space-y-2">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">2. Room Type</label>
                         <DropDown
                             theme={room}
                             setTheme={(newRoom) => startTransition(() => setRoom(newRoom as roomType))}
@@ -219,220 +263,165 @@ export default function Page() {
                         />
                     </section>
 
-                    {/* Step 2: Quality */}
+                    {/* 3. Themes */}
                     <section className="space-y-4">
-                        <h2 className="text-xl font-bold text-gray-900">(2) Select Quality</h2>
-                        <DropDown
-                            theme={quality}
-                            setTheme={(newQuality) => startTransition(() => setQuality(newQuality as qualityType))}
-                            themes={qualities}
-                        />
-                    </section>
-
-                    {/* Step 3: Room Themes */}
-                    <section className="space-y-6">
-                        <h2 className="text-xl font-bold text-gray-900">(3) Select Room Themes (up to 4)</h2>
-                        <div className={clsx("grid grid-cols-3 gap-3 transition-opacity duration-200", isPending && "opacity-70")}>
+                        <div className="flex items-center justify-between px-1">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">3. Style Themes</label>
+                            <span className="text-[10px] font-black text-gray-900 bg-gray-100 px-3 py-1 rounded-full">{selectedThemes.length}/4</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
                             {themes.map((t) => (
                                 <div 
                                     key={t.name}
                                     onClick={() => toggleTheme(t.name)}
-                                    className="group cursor-pointer space-y-1.5"
+                                    className={clsx(
+                                        "relative aspect-square rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-300",
+                                        selectedThemes.includes(t.name) ? "border-gray-900 scale-105 shadow-xl" : "border-transparent ring-1 ring-gray-100 hover:ring-gray-300"
+                                    )}
                                 >
-                                    <div className={clsx(
-                                        "relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-200",
-                                        selectedThemes.includes(t.name) ? "border-blue-500 scale-105 shadow-md" : "border-transparent group-hover:border-gray-200"
-                                    )}>
-                                        <Image 
-                                            src={t.image} 
-                                            alt={t.name}
-                                            fill
-                                            sizes="(max-width: 768px) 33vw, 10vw"
-                                            className="object-cover"
-                                        />
-                                        {selectedThemes.includes(t.name) && (
-                                            <div className="absolute top-1.5 right-1.5 bg-blue-500 rounded-full p-0.5">
-                                                <CheckIcon className="w-3 h-3 text-white" />
+                                    <Image src={t.image} alt={t.name} fill className="object-cover" />
+                                    {selectedThemes.includes(t.name) && (
+                                        <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                                            <div className="bg-white rounded-full p-1.5 shadow-lg scale-110">
+                                                <CheckIcon className="w-3 h-3 text-gray-900" />
                                             </div>
-                                        )}
-                                    </div>
-                                    <p className={clsx(
-                                        "text-[10px] sm:text-xs font-bold text-center transition-colors uppercase tracking-tight",
-                                        selectedThemes.includes(t.name) ? "text-blue-600" : "text-gray-500"
-                                    )}>
-                                        {t.name}
-                                    </p>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
                     </section>
+
+                    {/* Action Zone: Quality + Render */}
+                    <div className="space-y-4 pt-6 border-t border-gray-100">
+                        <section className="space-y-2">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Render Quality</label>
+                            <DropDown
+                                theme={quality}
+                                setTheme={(newQuality) => startTransition(() => setQuality(newQuality as qualityType))}
+                                themes={qualities}
+                            />
+                        </section>
+
+                        <button
+                            onClick={handleUpload}
+                            disabled={isUploading || isGenerating || (!selectedFile && !imageUrl)}
+                            className="w-full py-5 bg-gray-900 text-white text-base font-black rounded-[2rem] hover:bg-black transition-all transform active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-3 shadow-[0_20px_50px_rgba(0,0,0,0.2)]"
+                        >
+                            {isUploading || isGenerating ? (
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <span className="uppercase tracking-[0.2em] text-xs">Start Rendering</span>
+                            )}
+                        </button>
+                        
+                        <div className="flex items-center justify-between px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            <span>Credits Required</span>
+                            <span className="text-gray-900 font-black">{selectedThemes.length * (quality === "Pro - 2 credits" ? 2 : 1)} Units</span>
+                        </div>
+                    </div>
+
+                    {error && (
+                        <p className="text-[10px] font-black text-red-500 text-center uppercase tracking-tighter bg-red-50 py-3 rounded-2xl border border-red-100">{error}</p>
+                    )}
                 </div>
 
-                {/* Right Column: Upload & Results (2/3) */}
-                <div className="lg:col-span-2 space-y-12">
-                    {/* Step 4: Upload & Render */}
-                    <section className="bg-white p-6 md:p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-gray-900">(4) Upload & Render</h2>
-                            {imageUrl && (
-                                <button 
-                                    onClick={clearImage}
-                                    className="flex items-center gap-2 text-red-500 hover:text-red-600 text-sm font-bold transition-colors"
-                                >
-                                    <TrashIcon className="w-4 h-4" />
-                                    Clear All
-                                </button>
-                            )}
+                {/* Main Results Canvas (9/12) */}
+                <div className="lg:col-span-8 xl:col-span-9 pb-20">
+                    <div className="space-y-12">
+                        {/* Elegant Header */}
+                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-100 pb-8 px-2">
+                            <div className="space-y-1">
+                                <h2 className="text-4xl font-black text-gray-900 tracking-tighter uppercase">Canvas</h2>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Architectural Visualization Workspace</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-3">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Generation Progress</span>
+                                    <span className="text-xs font-black text-gray-900">
+                                        {Object.values(predictions).filter(p => p.status === 'succeeded').length} / {Math.max(Object.keys(predictions).length, selectedThemes.length)}
+                                    </span>
+                                </div>
+                                <div className="w-64 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gray-900 transition-all duration-1000 ease-out" style={{ width: `${(Object.values(predictions).filter(p => p.status === 'succeeded').length / Math.max(Object.keys(predictions).length, selectedThemes.length || 1)) * 100}%` }} />
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex flex-col md:flex-row items-center gap-8">
-                            {/* Upload Area */}
-                            <div className={clsx(
-                                "flex-1 w-full transition-all duration-300",
-                                (imageUrl || previewUrl) ? "max-w-[300px]" : "w-full"
-                            )}>
-                                {!imageUrl && !previewUrl ? (
-                                    <div 
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="group cursor-pointer flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 py-10 text-center transition-all hover:border-blue-400 hover:bg-blue-50/30"
-                                    >
-                                        <ArrowUpTrayIcon className="w-10 h-10 text-gray-300 group-hover:text-blue-400 transition-colors" />
-                                        <p className="mt-3 text-sm font-bold text-gray-900">Upload a photo</p>
-                                        <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Image (max 4MB)</p>
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            className="sr-only"
-                                            onChange={handleFileSelect}
-                                        />
+                        {/* Mixed Grid: Active Predictions + Draft Slots */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-12 px-2">
+                            {/* 1. Show existing predictions */}
+                            {Object.values(predictions).map((p) => (
+                                <div key={p.id} className="group space-y-6">
+                                    <div className="relative aspect-square rounded-[2.5rem] overflow-hidden bg-white border border-gray-100 transition-all shadow-md hover:shadow-[0_40px_80px_rgba(0,0,0,0.12)] hover:-translate-y-2">
+                                        {p.status === "processing" ? (
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-gray-50/30 backdrop-blur-sm">
+                                                <div className="w-16 h-16 border-[5px] border-gray-100 border-t-gray-900 rounded-full animate-spin mb-6" />
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-black text-gray-900 uppercase tracking-widest">Processing</p>
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{p.theme}</p>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <Image src={p.resultUrl || ""} alt="Result" fill className="object-cover" />
+                                        )}
                                     </div>
-                                ) : (
-                                    <div className="relative group rounded-2xl overflow-hidden ring-1 ring-gray-100 shadow-lg aspect-square w-full">
-                                        <Image 
-                                            src={previewUrl || imageUrl || ""} 
-                                            alt="Preview" 
-                                            fill 
-                                            className="object-cover" 
-                                        />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    
+                                    <div className="flex items-center justify-between px-4">
+                                        <div className="space-y-1">
+                                            <p className="text-base font-black text-gray-900 uppercase tracking-tight">{p.theme}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{room} • AI Generated</p>
+                                        </div>
+                                        {p.status === "succeeded" && (
                                             <button 
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className="bg-white text-gray-900 px-4 py-2 rounded-full text-xs font-black shadow-xl"
+                                                onClick={() => downloadImage(p.resultUrl!, `${p.theme}-${room}.jpg`)}
+                                                className="bg-gray-900 text-white p-2.5 rounded-2xl transition-all shadow-xl hover:scale-110 active:scale-90 group-hover:bg-blue-600"
+                                                title="Download High-Res"
                                             >
-                                                Change Photo
+                                                <ArrowUpTrayIcon className="w-4 h-4 -rotate-180" />
                                             </button>
-                                        </div>
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            className="sr-only"
-                                            onChange={handleFileSelect}
-                                        />
-                                        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
-                                            <p className="text-[10px] font-black text-gray-900 uppercase">Original Room</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Render Button Section */}
-                            <div className="flex-1 w-full space-y-4">
-                                <button
-                                    onClick={handleUpload}
-                                    disabled={isUploading || isGenerating || (!selectedFile && !imageUrl)}
-                                    className="w-full py-4 bg-[#e12d2d] text-white text-xl font-black rounded-2xl hover:bg-[#c12525] transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-red-100 flex items-center justify-center gap-3"
-                                >
-                                    {isUploading ? (
-                                        <>
-                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            <span>Uploading...</span>
-                                        </>
-                                    ) : isGenerating ? (
-                                        <>
-                                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            <span>Generating...</span>
-                                        </>
-                                    ) : (
-                                        <span>Render designs</span>
-                                    )}
-                                </button>
-                                
-                                <div className="flex items-center justify-between px-2">
-                                    <div className="text-sm font-bold text-gray-400 uppercase tracking-widest">
-                                        Estimated Cost
-                                    </div>
-                                    <div className="bg-gray-50 px-4 py-1.5 rounded-xl border border-gray-100 text-gray-900 font-black text-sm">
-                                        {selectedThemes.length > 0 ? selectedThemes.length * 2 : 2} credits
+                                        )}
                                     </div>
                                 </div>
+                            ))}
 
-                                {error && (
-                                    <p className="text-red-500 font-bold text-center text-sm animate-shake">{error}</p>
-                                )}
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Results Section */}
-                    {(Object.keys(predictions).length > 0) && (
-                        <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                            <div className="flex items-center justify-between border-b border-gray-100 pb-6">
-                                <h2 className="text-2xl font-black text-gray-900">Generated Results</h2>
-                                <span className="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">
-                                    {Object.values(predictions).filter(p => p.status === 'succeeded').length} / {Object.keys(predictions).length} Completed
-                                </span>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {Object.values(predictions).map((p) => (
-                                    <div key={p.id} className="group space-y-4">
-                                        <div className="relative aspect-[16/10] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-gray-100 bg-gray-50 transition-transform duration-500 hover:scale-[1.02]">
-                                            {p.status === "processing" ? (
-                                                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4">
-                                                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin shadow-inner"></div>
-                                                    <p className="text-sm font-black text-gray-400 animate-pulse uppercase tracking-widest">Rendering {p.theme}...</p>
+                            {/* 2. Show Draft Slots for selected themes not yet in predictions */}
+                            {selectedThemes
+                                .filter(themeName => !Object.values(predictions).some(p => p.theme === themeName))
+                                .map((themeName) => (
+                                    <div key={themeName} className="group space-y-6 animate-pulse opacity-40">
+                                        <div className="relative aspect-square rounded-[2.5rem] border-2 border-dashed border-gray-200 bg-gray-50/30 flex items-center justify-center">
+                                            <div className="text-center space-y-2">
+                                                <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto flex items-center justify-center">
+                                                    <Image src={themes.find(t => t.name === themeName)?.image || ""} alt="Draft" width={24} height={24} className="opacity-20 grayscale rounded-lg" />
                                                 </div>
-                                            ) : p.status === "succeeded" && p.resultUrl ? (
-                                                <>
-                                                    <Image 
-                                                        src={p.resultUrl} 
-                                                        alt={`${p.theme} result`} 
-                                                        fill 
-                                                        className="object-cover" 
-                                                    />
-                                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-6">
-                                                        <button 
-                                                            onClick={() => window.open(p.resultUrl, '_blank')}
-                                                            className="bg-white/95 backdrop-blur-md text-gray-900 px-6 py-3 rounded-2xl text-xs font-black shadow-2xl hover:scale-105 transition-transform"
-                                                        >
-                                                            Download High-Res
-                                                        </button>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <p className="text-red-500 font-bold uppercase tracking-widest text-xs">Generation failed</p>
-                                                </div>
-                                            )}
+                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ready to Render</p>
+                                            </div>
                                         </div>
-                                        <div className="text-center space-y-1">
-                                            <p className="text-gray-900 font-black uppercase tracking-tight text-sm">
-                                                {p.theme} {room}
-                                            </p>
-                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                                                AI Generated Concept
-                                            </p>
+                                        <div className="px-4 space-y-1">
+                                            <p className="text-base font-black text-gray-300 uppercase tracking-tight">{themeName}</p>
+                                            <p className="text-[10px] font-bold text-gray-200 uppercase tracking-widest">{room} • Pending</p>
                                         </div>
                                     </div>
                                 ))}
-                            </div>
-                        </section>
-                    )}
+
+                            {/* 3. Empty State if nothing is selected or rendered */}
+                            {selectedThemes.length === 0 && Object.keys(predictions).length === 0 && (
+                                <div className="col-span-full h-[60vh] flex flex-col items-center justify-center bg-white rounded-[3rem] border border-gray-100 text-center shadow-sm">
+                                    <div className="relative w-56 h-56 mb-8 transform hover:scale-105 transition-transform duration-700">
+                                        <Image src="/images/demo-industrial.png" alt="Workspace" fill className="object-contain drop-shadow-2xl" />
+                                    </div>
+                                    <div className="space-y-4">
+                                        <h3 className="text-4xl font-black text-gray-900 uppercase tracking-tighter italic">Studio Canvas</h3>
+                                        <div className="w-12 h-1 bg-gray-900 mx-auto rounded-full" />
+                                        <p className="text-sm text-gray-500 font-bold uppercase tracking-widest max-w-xs mx-auto">Select style themes from the sidebar to populate your workspace.</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
-
