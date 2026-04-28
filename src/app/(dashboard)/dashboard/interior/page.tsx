@@ -388,7 +388,7 @@ export default function Page() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 {Object.values(predictions).map((p) => (
                                     <div key={p.id} className="group space-y-4">
-                                        <div className="relative aspect-[16/10] rounded-[2.5rem] overflow-hidden shadow-2xl ring-1 ring-gray-100 bg-gray-50 transition-transform duration-500 hover:scale-[1.02]">
+                                        <div className="relative aspect-[16/10] rounded-[2rem] overflow-hidden shadow-2xl ring-1 ring-gray-100 bg-gray-50 transition-transform duration-500 hover:scale-[1.02]">
                                             {p.status === "processing" ? (
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4">
                                                     <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin shadow-inner"></div>

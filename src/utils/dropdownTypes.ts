@@ -21,12 +21,12 @@ export type roomType =
 export type qualityType = "Free" | "Pro - 2 credits";
 
 export const themes: { name: themeType; image: string }[] = [
-  { name: "Modern", image: "/theme-images/modern.jpg" },
+  { name: "Modern", image: "/theme-images/modern.png" },
   { name: "Summer", image: "/theme-images/summer.png" },
-  { name: "Professional", image: "/theme-images/professional.jpg" },
-  { name: "Tropical", image: "/theme-images/tropical.jpg" },
+  { name: "Professional", image: "/theme-images/professional.png" },
+  { name: "Tropical", image: "/theme-images/tropical.png" },
   { name: "Coastal", image: "/theme-images/coastal.png" },
-  { name: "Vintage", image: "/theme-images/vintage.jpg" },
+  { name: "Vintage", image: "/theme-images/vintage.png" },
   { name: "Industrial", image: "/theme-images/industrial.png" },
   { name: "Neoclassic", image: "/theme-images/neoclassic.png" },
   { name: "Tribal", image: "/theme-images/tribal.png" },
