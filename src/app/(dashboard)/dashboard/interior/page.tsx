@@ -12,6 +12,13 @@ import clsx from "clsx";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+interface PredictionState {
+    id: string;
+    status: "processing" | "succeeded" | "failed";
+    theme: themeType;
+    resultUrl?: string;
+}
+
 export default function Page() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -22,21 +29,25 @@ export default function Page() {
     const [room, setRoom] = useState<roomType>("Living Room");
     const [quality, setQuality] = useState<qualityType>("Pro - 2 credits");
     const [selectedThemes, setSelectedThemes] = useState<themeType[]>(["Modern"]);
-    const [restoredImage, setRestoredImage] = useState("");
-    const [predictionId, setPredictionId] = useState<string | null>(null);
+    const [predictions, setPredictions] = useState<Record<string, PredictionState>>({});
     const [isUploading, setIsUploading] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isPending, startTransition] = useTransition();
 
+    // Polling for multiple predictions
     useEffect(() => {
-        if (predictionId) {
+        const activePredictions = Object.values(predictions).filter(p => p.status === "processing");
+        
+        if (activePredictions.length > 0) {
             const pollInterval = setInterval(() => {
-                checkPredictionStatus(predictionId);
-            }, 1000);
+                activePredictions.forEach(p => checkPredictionStatus(p.id, p.theme));
+            }, 1500);
 
             return () => clearInterval(pollInterval);
+        } else if (Object.keys(predictions).length > 0 && activePredictions.length === 0) {
+            setIsGenerating(false);
         }
-    }, [predictionId]);
+    }, [predictions]);
 
     // Cleanup object URL to prevent memory leaks
     useEffect(() => {
@@ -61,7 +72,6 @@ export default function Page() {
     }, []);
 
     async function runTest(imageUrl: string, originalImageId: string) {
-        setError(null);
         if (originalImageId) {
             try {
                 await uploadProcessedImage(imageUrl, originalImageId);
@@ -72,11 +82,6 @@ export default function Page() {
     }
 
     async function generatePhoto(fileUrl: string, theme: themeType, room: roomType) {
-        setIsGenerating(true);
-        setRestoredImage("");
-        setError(null);
-        setPredictionId(null);
-
         try {
             const res = await fetch("/api/gen", {
                 method: "POST",
@@ -87,44 +92,45 @@ export default function Page() {
             });
 
             const data = await res.json();
-            if (res.status !== 200) {
-                setError(data.error || "An error occurred while generating the photo.");
-                setIsGenerating(false);
+            if (res.status === 200) {
+                setPredictions(prev => ({
+                    ...prev,
+                    [data.id]: { id: data.id, status: "processing", theme }
+                }));
             } else {
-                setPredictionId(data.id);
+                setError(data.error || `Failed to start generation for ${theme}`);
             }
         } catch (err) {
-            setError("An error occurred while generating the photo.");
-            setIsGenerating(false);
+            console.error(err);
+            setError(`Error generating photo for ${theme}`);
         }
     }
 
-    async function checkPredictionStatus(id: string) {
+    async function checkPredictionStatus(id: string, theme: themeType) {
         try {
             const res = await fetch(`/api/gen?id=${id}`);
             const data = await res.json();
 
             if (data.status === "succeeded") {
-                const imageUrl = Array.isArray(data.restoredImage) ? data.restoredImage[0] : data.restoredImage;
-                setRestoredImage(imageUrl);
-                setIsGenerating(false);
-                setPredictionId(null);
-                setPreviewUrl(imageUrl);
+                const resultUrl = Array.isArray(data.restoredImage) ? data.restoredImage[0] : data.restoredImage;
+                
+                setPredictions(prev => ({
+                    ...prev,
+                    [id]: { ...prev[id], status: "succeeded", resultUrl }
+                }));
 
-                if (imageUrl && originalImageId) {
-                    runTest(imageUrl, originalImageId);
+                if (resultUrl && originalImageId) {
+                    runTest(resultUrl, originalImageId);
                 }
             } else if (data.status === "failed") {
-                setError("Image generation failed. Please try again.");
-                setIsGenerating(false);
-                setPredictionId(null);
-            } else if (data.status === "processing") {
-                console.log("Still processing...");
+                setPredictions(prev => ({
+                    ...prev,
+                    [id]: { ...prev[id], status: "failed" }
+                }));
+                setError(`Generation failed for ${theme}`);
             }
         } catch (err) {
-            setError("An error occurred while checking the prediction status.");
-            setIsGenerating(false);
-            setPredictionId(null);
+            console.error("Error in checkPredictionStatus:", err);
         }
     }
 
@@ -133,9 +139,15 @@ export default function Page() {
         onClientUploadComplete: (res) => {
             setIsUploading(false);
             if (res?.[0].url) {
-                setImageUrl(res[0].url);
+                const fileUrl = res[0].url;
+                setImageUrl(fileUrl);
                 setOriginalImageId(res[0].key);
-                generatePhoto(res[0].url, selectedThemes[0] || "Modern", room);
+                
+                // Trigger generations for all selected themes
+                setIsGenerating(true);
+                selectedThemes.forEach(theme => {
+                    generatePhoto(fileUrl, theme, room);
+                });
             }
         },
         onUploadError: (err) => {
@@ -148,13 +160,14 @@ export default function Page() {
         const file = e.target.files?.[0];
         if (!file) return;
         
-        // Revoke old URL if it exists
         if (previewUrl && previewUrl.startsWith('blob:')) {
             URL.revokeObjectURL(previewUrl);
         }
         
         setSelectedFile(file);
         setPreviewUrl(URL.createObjectURL(file));
+        // Reset predictions when new file is selected
+        setPredictions({});
     }, [previewUrl]);
 
     const handleUpload = useCallback(async () => {
@@ -166,6 +179,8 @@ export default function Page() {
             setError("Please select at least one theme.");
             return;
         }
+        setError(null);
+        setPredictions({}); // Clear previous results
         await startUpload([selectedFile], { design: 'interior', type: 'original' });
     }, [selectedFile, selectedThemes, startUpload]);
 
@@ -258,7 +273,7 @@ export default function Page() {
                                     </label>
                                     <p className="mt-1 text-sm text-gray-400">Image (max 4MB)</p>
                                     
-                                    {previewUrl && !restoredImage && (
+                                    {previewUrl && (
                                         <div className="mt-8 relative w-48 h-48 rounded-2xl overflow-hidden ring-4 ring-blue-500 ring-offset-4 shadow-2xl">
                                             <Image 
                                                 src={previewUrl} 
@@ -281,7 +296,9 @@ export default function Page() {
                                 </button>
                                 <div className="text-lg font-bold text-gray-600 flex items-center gap-2">
                                     <span>Cost:</span>
-                                    <span className="bg-gray-100 px-3 py-1 rounded-lg text-gray-900">2 credits</span>
+                                    <span className="bg-gray-100 px-3 py-1 rounded-lg text-gray-900">
+                                        {selectedThemes.length > 0 ? selectedThemes.length * 2 : 2} credits
+                                    </span>
                                 </div>
                             </div>
 
@@ -292,41 +309,54 @@ export default function Page() {
                     </section>
 
                     {/* Results Section */}
-                    {(imageUrl || restoredImage) && (
+                    {(Object.keys(predictions).length > 0 || imageUrl) && (
                         <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-2xl font-black text-gray-900">Your Remodeled Room</h2>
-                                {restoredImage && (
-                                    <button 
-                                        onClick={() => window.open(restoredImage, '_blank')}
-                                        className="text-blue-600 font-bold hover:underline"
-                                    >
-                                        Download High-Res
-                                    </button>
-                                )}
+                                <h2 className="text-2xl font-black text-gray-900">Generated Results</h2>
                             </div>
-                            <div className="grid grid-cols-1 gap-12">
-                                {restoredImage && (
-                                    <div className="space-y-4">
-                                        <div className="relative aspect-[16/10] rounded-[2.5rem] overflow-hidden shadow-2xl ring-1 ring-gray-100">
-                                            <Image 
-                                                src={restoredImage} 
-                                                alt="Restored" 
-                                                fill 
-                                                priority
-                                                className="object-cover" 
-                                            />
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {Object.values(predictions).map((p) => (
+                                    <div key={p.id} className="space-y-4">
+                                        <div className="relative aspect-[16/10] rounded-[2rem] overflow-hidden shadow-xl ring-1 ring-gray-100 bg-gray-50">
+                                            {p.status === "processing" ? (
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4">
+                                                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                                    <p className="text-sm font-bold text-gray-500 animate-pulse">Rendering {p.theme}...</p>
+                                                </div>
+                                            ) : p.status === "succeeded" && p.resultUrl ? (
+                                                <>
+                                                    <Image 
+                                                        src={p.resultUrl} 
+                                                        alt={`${p.theme} result`} 
+                                                        fill 
+                                                        className="object-cover" 
+                                                    />
+                                                    <button 
+                                                        onClick={() => window.open(p.resultUrl, '_blank')}
+                                                        className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-white transition-colors"
+                                                    >
+                                                        Download
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <p className="text-red-500 font-bold">Failed to generate</p>
+                                                </div>
+                                            )}
                                         </div>
-                                        <p className="text-center text-gray-500 font-medium">
-                                            Style: <span className="text-gray-900 font-bold">{selectedThemes[0]}</span> • 
-                                            Room: <span className="text-gray-900 font-bold">{room}</span>
+                                        <p className="text-center text-gray-600 font-bold uppercase tracking-wider text-xs">
+                                            {p.theme} {room}
                                         </p>
                                     </div>
-                                )}
-                                {imageUrl && (
-                                    <div className="max-w-md mx-auto w-full space-y-4 opacity-60 hover:opacity-100 transition-opacity">
-                                        <p className="text-sm font-bold text-gray-400 text-center uppercase tracking-widest">Original Reference</p>
-                                        <div className="relative aspect-[16/10] rounded-3xl overflow-hidden shadow-lg border border-gray-100">
+                                ))}
+                            </div>
+
+                            {imageUrl && (
+                                <div className="pt-12 border-t border-gray-100">
+                                    <div className="max-w-md mx-auto w-full space-y-4 opacity-40 hover:opacity-100 transition-opacity">
+                                        <p className="text-xs font-bold text-gray-400 text-center uppercase tracking-widest">Original Reference</p>
+                                        <div className="relative aspect-[16/10] rounded-3xl overflow-hidden shadow-md border border-gray-100">
                                             <Image 
                                                 src={imageUrl} 
                                                 alt="Original" 
@@ -336,8 +366,8 @@ export default function Page() {
                                             />
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </section>
                     )}
                 </div>
