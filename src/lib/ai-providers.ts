@@ -102,22 +102,48 @@ export class GoogleGenAIProvider implements AIProvider {
       return { status: "failed", error: data.error };
     }
 
-    // If pending, perform the generation now (since it's Imagen 4 Fast, it should be quick enough for a single request)
+    // If pending, perform the generation now
     try {
-      const response = await this.ai.models.generateImages({
-        model: 'models/imagen-4.0-fast-generate-001',
-        prompt: data.prompt, // In a real remodel app, we'd use the image too, but following user snippet
+      // Fetch the original image to use as a reference (Image-to-Image / Remodel)
+      let imagePart;
+      try {
+        const imageRes = await fetch(data.imageUrl);
+        const imageBuffer = await imageRes.arrayBuffer();
+        imagePart = {
+          inlineData: {
+            data: Buffer.from(imageBuffer).toString('base64'),
+            mimeType: 'image/jpeg'
+          }
+        };
+      } catch (err) {
+        console.warn("Failed to fetch original image for reference, proceeding with text only:", err);
+      }
+
+      // Using generateContent for Gemini multimodal models
+      const response = await this.ai.models.generateContent({
+        model: 'models/gemini-2.5-flash-image',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              ...(imagePart ? [imagePart] : []),
+              { text: `Remodel this room based on the following theme: ${data.prompt}. Maintain the structural layout of the room but update the furniture, colors, and lighting. Output the result as an image.` }
+            ]
+          }
+        ],
         config: {
-          numberOfImages: 1,
-          outputMimeType: 'image/jpeg',
-          personGeneration: PersonGeneration.ALLOW_ADULT,
-          aspectRatio: '1:1',
+          responseModalities: ["IMAGE"],
+          // responseMimeType: "image/jpeg", // Optional, depending on model support
         },
       });
 
-      const generatedImage = response?.generatedImages?.[0]?.image?.imageBytes;
+      // Extract the generated image from response parts
+      const generatedPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+      const generatedImage = generatedPart?.inlineData?.data;
+
       if (!generatedImage) {
-        throw new Error("No images generated");
+        console.error("Gemini Response:", JSON.stringify(response, null, 2));
+        throw new Error("No images generated in Gemini response");
       }
 
       // Convert base64 to a data URL for easy display

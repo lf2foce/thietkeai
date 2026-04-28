@@ -14,16 +14,31 @@ export async function POST(req: Request) {
     if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const { imageUrl, originalImageId } = await req.json(); //userId, 
-    const fileName = `processed_image_${Date.now()}`;
-    // Upload the image to UploadThing
-    const uploadedImage = await utapi.uploadFilesFromUrl(imageUrl,{
-        metadata: { originalImageId }, //userId, 
-        contentDisposition: `inline`, // Set content di sposition to 'inline'
-        // contentType: "image/jpeg", 
-      });
+    const { imageUrl, originalImageId } = await req.json();
+    const fileName = `processed_image_${Date.now()}.jpg`;
 
-    if (!uploadedImage.data) {
+    let uploadedImage;
+
+    if (imageUrl.startsWith('data:')) {
+      // Handle base64 data URL
+      const base64Data = imageUrl.split(',')[1];
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      // Create a File-like object or use the buffer directly if utapi supports it
+      // utapi.uploadFiles expects an array of files
+      const file = new File([buffer], fileName, { type: 'image/jpeg' });
+      const response = await utapi.uploadFiles([file]);
+      uploadedImage = response[0];
+    } else {
+      // Handle regular URL
+      uploadedImage = await utapi.uploadFilesFromUrl(imageUrl, {
+        metadata: { originalImageId },
+        contentDisposition: `inline`,
+      });
+    }
+
+    if (!uploadedImage || !uploadedImage.data) {
+      console.error("UploadThing Error:", uploadedImage?.error);
       return NextResponse.json({ error: "Failed to upload image" }, { status: 500 });
     }
 
