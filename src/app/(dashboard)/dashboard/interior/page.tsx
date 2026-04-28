@@ -269,7 +269,7 @@ export default function Page() {
                             </div>
                         ) : (
                             <div className="relative group rounded-[2rem] overflow-hidden ring-1 ring-gray-100 aspect-[4/3] w-full shadow-xl">
-                                <Image src={previewUrl || imageUrl || ""} alt="Preview" fill className="object-cover" />
+                                <Image src={previewUrl || imageUrl || ""} alt="Preview" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-white uppercase border border-white/50 px-6 py-2.5 rounded-2xl backdrop-blur-md hover:bg-white hover:text-black transition-all">Change Photo</button>
                                 </div>
@@ -304,7 +304,7 @@ export default function Page() {
                                         selectedThemes.includes(t.name) ? "border-gray-900 scale-105 shadow-xl" : "border-transparent ring-1 ring-gray-100 hover:ring-gray-300"
                                     )}
                                 >
-                                    <Image src={t.image} alt={t.name} fill className="object-cover" />
+                                    <Image src={t.image} alt={t.name} fill sizes="(max-width: 768px) 33vw, 10vw" className="object-cover" />
                                     {selectedThemes.includes(t.name) && (
                                         <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
                                             <div className="bg-white rounded-full p-1.5 shadow-lg scale-110">
@@ -364,11 +364,11 @@ export default function Page() {
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Generation Progress</span>
                                     <span className="text-xs font-black text-gray-900">
-                                        {Object.values(predictions).filter(p => p.status === 'succeeded').length} / {Math.max(Object.keys(predictions).length, selectedThemes.length)}
+                                        {Object.values(predictions).filter(p => p.status === 'succeeded').length} / {selectedThemes.length}
                                     </span>
                                 </div>
                                 <div className="w-64 h-1 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-gray-900 transition-all duration-1000 ease-out" style={{ width: `${(Object.values(predictions).filter(p => p.status === 'succeeded').length / Math.max(Object.keys(predictions).length, selectedThemes.length || 1)) * 100}%` }} />
+                                    <div className="h-full bg-gray-900 transition-all duration-1000 ease-out" style={{ width: `${(Object.values(predictions).filter(p => p.status === 'succeeded').length / Math.max(selectedThemes.length, 1)) * 100}%` }} />
                                 </div>
                             </div>
                         </div>
@@ -397,7 +397,7 @@ export default function Page() {
                                             </div>
                                         ) : (
                                             p.resultUrl ? (
-                                                <Image src={p.resultUrl} alt="Result" fill className="object-cover" />
+                                                <Image src={p.resultUrl} alt="Result" fill sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-cover" />
                                             ) : (
                                                 <div className="absolute inset-0 bg-gray-50 flex items-center justify-center text-center p-6">
                                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-relaxed">Image data unavailable or generation failed</p>
@@ -428,18 +428,18 @@ export default function Page() {
                             {selectedThemes
                                 .filter(themeName => !Object.values(predictions).some(p => p.theme === themeName))
                                 .map((themeName) => (
-                                    <div key={themeName} className="group space-y-6 animate-pulse opacity-40">
-                                        <div className="relative aspect-square rounded-[2.5rem] border-2 border-dashed border-gray-200 bg-gray-50/30 flex items-center justify-center">
-                                            <div className="text-center space-y-2">
-                                                <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto flex items-center justify-center">
-                                                    <Image src={themes.find(t => t.name === themeName)?.image || ""} alt="Draft" width={24} height={24} className="opacity-20 grayscale rounded-lg" />
+                                    <div key={themeName} className="group space-y-6 opacity-70">
+                                        <div className="relative aspect-square rounded-[2.5rem] border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                                            <div className="text-center space-y-3">
+                                                <div className="w-14 h-14 bg-gray-100 rounded-full mx-auto flex items-center justify-center border border-gray-200">
+                                                    <Image src={themes.find(t => t.name === themeName)?.image || ""} alt="Draft" width={28} height={28} className="opacity-40 grayscale rounded-lg" />
                                                 </div>
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ready to Render</p>
+                                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Ready to Render</p>
                                             </div>
                                         </div>
                                         <div className="px-4 space-y-1">
-                                            <p className="text-base font-black text-gray-300 uppercase tracking-tight">{themeName}</p>
-                                            <p className="text-[10px] font-bold text-gray-200 uppercase tracking-widest">{room} • Pending</p>
+                                            <p className="text-base font-black text-gray-500 uppercase tracking-tight">{themeName}</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{room} • Pending</p>
                                         </div>
                                     </div>
                                 ))}
@@ -448,7 +448,7 @@ export default function Page() {
                             {selectedThemes.length === 0 && Object.keys(predictions).length === 0 && (
                                 <div className="col-span-full h-[60vh] flex flex-col items-center justify-center bg-white rounded-[3rem] border border-gray-100 text-center shadow-sm">
                                     <div className="relative w-56 h-56 mb-8 transform hover:scale-105 transition-transform duration-700">
-                                        <Image src="/images/demo-industrial.png" alt="Workspace" fill className="object-contain drop-shadow-2xl" />
+                                        <Image src="/images/demo-industrial.png" alt="Workspace" fill sizes="(max-width: 768px) 100vw, 224px" className="object-contain drop-shadow-2xl" />
                                     </div>
                                     <div className="space-y-4">
                                         <h3 className="text-4xl font-black text-gray-900 uppercase tracking-tighter italic">Studio Canvas</h3>

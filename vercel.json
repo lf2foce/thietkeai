@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "src/app/api/gen/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/uploadProcessedImage/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}
