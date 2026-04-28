@@ -204,20 +204,15 @@ export default function LandingPage() {
       </Link>
     </div>
     <div className="md:w-3/5 relative">
-      <Image
-        src="/hero-desktop.png"
-        width={1000}
-        height={760}
-        className="hidden md:block relative rounded-2xl"
-        alt="Screenshots of the dashboard project showing desktop version"
-      />
-      <Image
-        src="/hero-mobile.png"
-        width={560}
-        height={620}
-        className="block md:hidden relative rounded-2xl"
-        alt="Screenshot of the dashboard project showing mobile version"
-      />
+      <div className="relative aspect-square w-full rounded-2xl overflow-hidden shadow-2xl ring-1 ring-gray-200 bg-white">
+        <Image
+          src="/images/demo-industrial.png"
+          fill
+          className="object-cover"
+          alt="Industrial Loft transformation before and after demonstration"
+          priority
+        />
+      </div>
     </div>
   </div>
 </div>
