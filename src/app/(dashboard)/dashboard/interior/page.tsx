@@ -21,8 +21,11 @@ interface PredictionState {
 
 export default function Page() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [imageUrls, setImageUrls] = useState<string[]>([]);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [originalImageId, setOriginalImageId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -30,6 +33,7 @@ export default function Page() {
     const [quality, setQuality] = useState<qualityType>("Pro - 2 credits");
     const [selectedThemes, setSelectedThemes] = useState<themeType[]>(["Modern"]);
     const [roomCondition, setRoomCondition] = useState<"raw" | "finished">("raw");
+    const [renderMode, setRenderMode] = useState<"standard" | "style-ref">("standard");
     const [predictions, setPredictions] = useState<Record<string, PredictionState>>({});
     const [isUploading, setIsUploading] = useState(false);
     const [modalImage, setModalImage] = useState<string | null>(null);
@@ -40,19 +44,23 @@ export default function Page() {
 
     // Keep predictions sorted by selectedThemes order
     const sortedPredictions = Object.values(predictions).sort((a, b) => {
+        if (renderMode === 'style-ref') return 0;
         const ai = selectedThemes.indexOf(a.theme);
         const bi = selectedThemes.indexOf(b.theme);
         return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     });
 
-    // Cleanup object URL to prevent memory leaks
+    // Cleanup object URLs to prevent memory leaks
     useEffect(() => {
         return () => {
             if (previewUrl && previewUrl.startsWith('blob:')) {
                 URL.revokeObjectURL(previewUrl);
             }
+            previewUrls.forEach(url => {
+                if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+            });
         };
-    }, [previewUrl]);
+    }, [previewUrl, previewUrls]);
 
     const toggleTheme = useCallback((theme: themeType) => {
         startTransition(() => {
@@ -77,12 +85,19 @@ export default function Page() {
         }
     }
 
-    async function generatePhoto(fileUrl: string, theme: themeType, room: roomType, origImageId: string | null) {
+    async function generatePhoto(fileUrl: string | string[], theme: themeType, room: roomType, origImageId: string | null) {
         try {
+            const body: any = { theme, room, roomCondition };
+            if (Array.isArray(fileUrl)) {
+                body.imageUrls = fileUrl;
+            } else {
+                body.imageUrl = fileUrl;
+            }
+
             const res = await fetch("/api/gen", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ imageUrl: fileUrl, theme, room, roomCondition }),
+                body: JSON.stringify(body),
             });
 
             const data = await res.json();
@@ -128,12 +143,18 @@ export default function Page() {
         onUploadBegin: () => setIsUploading(true),
         onClientUploadComplete: (res) => {
             setIsUploading(false);
-            if (res?.[0].url) {
-                const fileUrl = res[0].url;
-                const origId = res[0].key;
-                setImageUrl(fileUrl);
-                setOriginalImageId(origId);
-                selectedThemes.forEach(theme => generatePhoto(fileUrl, theme, room, origId));
+            if (res && res.length > 0) {
+                const urls = res.map(f => f.ufsUrl);
+                const firstUrl = urls[0];
+                const firstId = res[0].key;
+                
+                setImageUrl(firstUrl);
+                setImageUrls(urls);
+                setOriginalImageId(firstId);
+                
+                const finalUrl = renderMode === 'style-ref' ? urls : firstUrl;
+                const themesToRender = renderMode === 'style-ref' ? ["Custom Style"] : selectedThemes;
+                themesToRender.forEach(theme => generatePhoto(finalUrl, theme as themeType, room, firstId));
             }
         },
         onUploadError: () => {
@@ -143,25 +164,39 @@ export default function Page() {
     });
 
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
-        if (previewUrl && previewUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(previewUrl);
+        // Cleanup old previews
+        if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+        previewUrls.forEach(url => { if (url.startsWith('blob:')) URL.revokeObjectURL(url); });
+
+        if (renderMode === 'style-ref') {
+            setSelectedFiles(files);
+            setPreviewUrls(files.map(f => URL.createObjectURL(f)));
+            // Also set first one as main preview for compatibility
+            setPreviewUrl(URL.createObjectURL(files[0]));
+        } else {
+            const file = files[0];
+            setSelectedFile(file);
+            setPreviewUrl(URL.createObjectURL(file));
+            setPreviewUrls([]);
+            setSelectedFiles([]);
         }
-
-        setSelectedFile(file);
-        setPreviewUrl(URL.createObjectURL(file));
+        
         setImageUrl(null);
+        setImageUrls([]);
         setPredictions({});
-    }, [previewUrl]);
+    }, [previewUrl, previewUrls, renderMode]);
+
+    const hasSelection = renderMode === 'style-ref' ? (selectedFiles.length > 0 || imageUrls.length > 0) : (!!selectedFile || !!imageUrl);
 
     const handleUpload = useCallback(async () => {
-        if (!selectedFile && !imageUrl) {
-            setError("Please select an image first.");
+        if (!hasSelection) {
+            setError("Please select image(s) first.");
             return;
         }
-        if (selectedThemes.length === 0) {
+        if (renderMode === 'standard' && selectedThemes.length === 0) {
             setError("Please select at least one theme.");
             return;
         }
@@ -169,26 +204,42 @@ export default function Page() {
         setError(null);
 
         const initialPredictions: Record<string, PredictionState> = {};
-        selectedThemes.forEach(theme => {
+        const themesToRender = renderMode === 'style-ref' ? ["Custom Style"] : selectedThemes;
+        
+        themesToRender.forEach(theme => {
             const tempId = `temp_${theme}_${Date.now()}`;
-            initialPredictions[tempId] = { id: tempId, status: "queued", theme };
+            initialPredictions[tempId] = { id: tempId, status: "queued", theme: theme as themeType };
         });
         setPredictions(initialPredictions);
 
-        if (imageUrl) {
-            selectedThemes.forEach(theme => generatePhoto(imageUrl, theme, room, originalImageId));
-        } else if (selectedFile) {
-            await startUpload([selectedFile], { design: 'interior', type: 'original' });
+        if (renderMode === 'style-ref') {
+            if (imageUrls.length > 0) {
+                themesToRender.forEach(theme => generatePhoto(imageUrls, theme as themeType, room, originalImageId));
+            } else if (selectedFiles.length > 0) {
+                await startUpload(selectedFiles, { design: 'interior', type: 'style-ref' });
+            }
+        } else {
+            if (imageUrl) {
+                selectedThemes.forEach(theme => generatePhoto(imageUrl, theme, room, originalImageId));
+            } else if (selectedFile) {
+                await startUpload([selectedFile], { design: 'interior', type: 'original' });
+            }
         }
-    }, [selectedFile, imageUrl, selectedThemes, startUpload, room, originalImageId]);
+    }, [selectedFile, selectedFiles, imageUrl, imageUrls, selectedThemes, startUpload, room, originalImageId, renderMode]);
 
     const clearImage = () => {
         setImageUrl(null);
+        setImageUrls([]);
         setSelectedFile(null);
+        setSelectedFiles([]);
         if (previewUrl && previewUrl.startsWith('blob:')) {
             URL.revokeObjectURL(previewUrl);
         }
+        previewUrls.forEach(url => {
+            if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+        });
         setPreviewUrl(null);
+        setPreviewUrls([]);
         setPredictions({});
     };
 
@@ -237,25 +288,99 @@ export default function Page() {
                 {/* Sidebar */}
                 <div className="lg:col-span-4 xl:col-span-3 space-y-8 lg:sticky lg:top-4 px-2">
 
+                    {/* 0. Generation Mode */}
+                    <section className="space-y-3">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Render Mode</label>
+                        <div className="flex bg-gray-100 p-1 rounded-xl">
+                            <button
+                                onClick={() => { setRenderMode("standard"); clearImage(); }}
+                                className={clsx(
+                                    "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                                    renderMode === "standard" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                                )}
+                            >
+                                Standard
+                            </button>
+                            <button
+                                onClick={() => { setRenderMode("style-ref"); clearImage(); }}
+                                className={clsx(
+                                    "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                                    renderMode === "style-ref" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                                )}
+                            >
+                                Style Ref
+                            </button>
+                        </div>
+                    </section>
+
                     {/* 1. Upload */}
                     <section className="space-y-3">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">1. Original Room</label>
-                        {!imageUrl && !previewUrl ? (
+                        <div className="flex items-center justify-between px-1">
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                {renderMode === 'style-ref' ? '1. Room + Styles' : '1. Original Room'}
+                            </label>
+                            {renderMode === 'style-ref' && (
+                                <span className="text-[9px] font-bold text-gray-400 uppercase bg-gray-100 px-2 py-0.5 rounded">Multi-upload</span>
+                            )}
+                        </div>
+                        
+                        {!imageUrl && !previewUrl && previewUrls.length === 0 ? (
                             <div
                                 onClick={() => fileInputRef.current?.click()}
                                 className="group cursor-pointer flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 transition-all hover:border-gray-900 hover:bg-white"
                             >
                                 <ArrowUpTrayIcon className="w-8 h-8 text-gray-300 group-hover:text-gray-900 transition-colors" />
-                                <p className="mt-3 text-[10px] font-black text-gray-400 uppercase">Click to upload</p>
-                                <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileSelect} />
+                                <p className="mt-3 text-[10px] font-black text-gray-400 uppercase text-center px-4">
+                                    {renderMode === 'style-ref' ? 'Upload Room & Style References' : 'Click to upload room'}
+                                </p>
+                                <input 
+                                    ref={fileInputRef} 
+                                    type="file" 
+                                    accept="image/*" 
+                                    multiple={renderMode === 'style-ref'}
+                                    className="sr-only" 
+                                    onChange={handleFileSelect} 
+                                />
                             </div>
                         ) : (
-                            <div className="relative group rounded-xl overflow-hidden ring-1 ring-gray-100 aspect-[4/3] w-full">
-                                <Image src={previewUrl || imageUrl || ""} alt="Preview" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-white uppercase border border-white/50 px-6 py-2.5 rounded-lg backdrop-blur-md hover:bg-white hover:text-black transition-all">Change Photo</button>
-                                </div>
-                                <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileSelect} />
+                            <div className="space-y-2">
+                                {renderMode === 'style-ref' && previewUrls.length > 0 ? (
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {previewUrls.map((url, i) => (
+                                            <div key={i} className={clsx(
+                                                "relative aspect-square rounded-lg overflow-hidden ring-1 ring-gray-100",
+                                                i === 0 ? "ring-2 ring-gray-900 shadow-lg" : ""
+                                            )}>
+                                                <Image src={url} alt={`Preview ${i}`} fill className="object-cover" />
+                                                {i === 0 && (
+                                                    <div className="absolute top-1 left-1 bg-gray-900 text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded">Target</div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        <button 
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="aspect-square flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-900 transition-all group"
+                                        >
+                                            <ArrowUpTrayIcon className="w-4 h-4 text-gray-300 group-hover:text-gray-900" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="relative group rounded-xl overflow-hidden ring-1 ring-gray-100 aspect-[4/3] w-full">
+                                        <Image src={previewUrl || imageUrl || ""} alt="Preview" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-white uppercase border border-white/50 px-6 py-2.5 rounded-lg backdrop-blur-md hover:bg-white hover:text-black transition-all">Change Photo</button>
+                                        </div>
+                                    </div>
+                                )}
+                                <button onClick={clearImage} className="w-full py-2 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-red-500 transition-colors">Clear All</button>
+                                <input 
+                                    ref={fileInputRef} 
+                                    type="file" 
+                                    accept="image/*" 
+                                    multiple={renderMode === 'style-ref'}
+                                    className="sr-only" 
+                                    onChange={handleFileSelect} 
+                                />
                             </div>
                         )}
                     </section>
@@ -304,41 +429,43 @@ export default function Page() {
                         />
                     </section>
 
-                    {/* 3. Themes */}
-                    <section className="space-y-4">
-                        <div className="flex items-center justify-between px-1">
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">4. Style Themes</label>
-                            <span className="text-[10px] font-black text-gray-900 bg-gray-100 px-3 py-1 rounded-full">{selectedThemes.length}/4</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-y-4 gap-x-3">
-                            {themes.map((t) => (
-                                <div key={t.name} className="space-y-1.5">
-                                    <div
-                                        onClick={() => toggleTheme(t.name)}
-                                        className={clsx(
-                                            "relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all duration-200",
-                                            selectedThemes.includes(t.name) ? "border-gray-900 scale-105" : "border-transparent ring-1 ring-gray-100 hover:ring-gray-300"
-                                        )}
-                                    >
-                                        <Image src={t.image} alt={t.name} fill sizes="(max-width: 768px) 33vw, 10vw" className="object-cover" />
-                                        {selectedThemes.includes(t.name) && (
-                                            <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
-                                                <div className="bg-white rounded-full p-1.5 scale-110">
-                                                    <CheckIcon className="w-3 h-3 text-gray-900" />
+                    {/* 3. Themes - Only show in Standard mode */}
+                    {renderMode === 'standard' && (
+                        <section className="space-y-4">
+                            <div className="flex items-center justify-between px-1">
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">4. Style Themes</label>
+                                <span className="text-[10px] font-black text-gray-900 bg-gray-100 px-3 py-1 rounded-full">{selectedThemes.length}/4</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-y-4 gap-x-3">
+                                {themes.map((t) => (
+                                    <div key={t.name} className="space-y-1.5">
+                                        <div
+                                            onClick={() => toggleTheme(t.name)}
+                                            className={clsx(
+                                                "relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all duration-200",
+                                                selectedThemes.includes(t.name) ? "border-gray-900 scale-105" : "border-transparent ring-1 ring-gray-100 hover:ring-gray-300"
+                                            )}
+                                        >
+                                            <Image src={t.image} alt={t.name} fill sizes="(max-width: 768px) 33vw, 10vw" className="object-cover" />
+                                            {selectedThemes.includes(t.name) && (
+                                                <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                                                    <div className="bg-white rounded-full p-1.5 scale-110">
+                                                        <CheckIcon className="w-3 h-3 text-gray-900" />
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
+                                        <p className={clsx(
+                                            "text-xs font-bold text-center truncate",
+                                            selectedThemes.includes(t.name) ? "text-gray-900" : "text-gray-400"
+                                        )}>
+                                            {t.name}
+                                        </p>
                                     </div>
-                                    <p className={clsx(
-                                        "text-xs font-bold text-center truncate",
-                                        selectedThemes.includes(t.name) ? "text-gray-900" : "text-gray-400"
-                                    )}>
-                                        {t.name}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
+                                ))}
+                            </div>
+                        </section>
+                    )}
 
                     {/* Quality + Render */}
                     <div className="space-y-4 pt-6 border-t border-gray-100">
@@ -353,7 +480,7 @@ export default function Page() {
 
                         <button
                             onClick={handleUpload}
-                            disabled={isUploading || isGenerating || (!selectedFile && !imageUrl)}
+                            disabled={isUploading || isGenerating || !hasSelection}
                             className="w-full py-5 bg-gray-900 text-white text-base font-black rounded-xl hover:bg-black transition-all transform active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-3"
                         >
                             {isUploading || isGenerating ? (
@@ -365,7 +492,9 @@ export default function Page() {
 
                         <div className="flex items-center justify-between px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                             <span>Credits Required</span>
-                            <span className="text-gray-900 font-black">{selectedThemes.length * (quality === "Pro - 2 credits" ? 2 : 1)} Units</span>
+                            <span className="text-gray-900 font-black">
+                                {renderMode === 'style-ref' ? (quality === "Pro - 2 credits" ? 2 : 1) : (selectedThemes.length * (quality === "Pro - 2 credits" ? 2 : 1))} Units
+                            </span>
                         </div>
                     </div>
 
@@ -386,11 +515,11 @@ export default function Page() {
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Generation Progress</span>
                                     <span className="text-xs font-black text-gray-900">
-                                        {sortedPredictions.filter(p => p.status === 'succeeded').length} / {selectedThemes.length}
+                                        {sortedPredictions.filter(p => p.status === 'succeeded').length} / {renderMode === 'style-ref' ? 1 : selectedThemes.length}
                                     </span>
                                 </div>
                                 <div className="w-64 h-1 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-gray-900 transition-all duration-700 ease-out" style={{ width: `${(sortedPredictions.filter(p => p.status === 'succeeded').length / Math.max(selectedThemes.length, 1)) * 100}%` }} />
+                                    <div className="h-full bg-gray-900 transition-all duration-700 ease-out" style={{ width: `${(sortedPredictions.filter(p => p.status === 'succeeded').length / Math.max(renderMode === 'style-ref' ? 1 : selectedThemes.length, 1)) * 100}%` }} />
                                 </div>
                             </div>
                         </div>
@@ -441,27 +570,46 @@ export default function Page() {
                             ))}
 
                             {/* Draft slots */}
-                            {selectedThemes
-                                .filter(themeName => !sortedPredictions.some(p => p.theme === themeName))
-                                .map((themeName) => (
-                                    <div key={themeName} className="space-y-4 opacity-50">
+                            {renderMode === 'standard' ? (
+                                selectedThemes
+                                    .filter(themeName => !sortedPredictions.some(p => p.theme === themeName))
+                                    .map((themeName) => (
+                                        <div key={themeName} className="space-y-4 opacity-50">
+                                            <div className="relative aspect-square rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
+                                                <div className="text-center space-y-2">
+                                                    <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto flex items-center justify-center border border-gray-200">
+                                                        <Image src={themes.find(t => t.name === themeName)?.image || ""} alt="Draft" width={24} height={24} className="opacity-40 grayscale rounded-lg" />
+                                                    </div>
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ready to Render</p>
+                                                </div>
+                                            </div>
+                                            <div className="px-2 space-y-0.5">
+                                                <p className="text-sm font-black text-gray-400 uppercase tracking-tight">{themeName}</p>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{room} • Pending</p>
+                                            </div>
+                                        </div>
+                                    ))
+                            ) : (
+                                !sortedPredictions.some(p => p.theme === "Custom Style") && (
+                                    <div className="space-y-4 opacity-50">
                                         <div className="relative aspect-square rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
                                             <div className="text-center space-y-2">
                                                 <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto flex items-center justify-center border border-gray-200">
-                                                    <Image src={themes.find(t => t.name === themeName)?.image || ""} alt="Draft" width={24} height={24} className="opacity-40 grayscale rounded-lg" />
+                                                    <ArrowUpTrayIcon className="w-6 h-6 text-gray-300" />
                                                 </div>
                                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ready to Render</p>
                                             </div>
                                         </div>
                                         <div className="px-2 space-y-0.5">
-                                            <p className="text-sm font-black text-gray-400 uppercase tracking-tight">{themeName}</p>
-                                            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">{room} • Pending</p>
+                                            <p className="text-sm font-black text-gray-400 uppercase tracking-tight">Custom Style</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{room} • Style Reference</p>
                                         </div>
                                     </div>
-                                ))}
+                                )
+                            )}
 
                             {/* Empty state */}
-                            {selectedThemes.length === 0 && Object.keys(predictions).length === 0 && (
+                            {(renderMode === 'standard' ? selectedThemes.length === 0 : !hasSelection) && Object.keys(predictions).length === 0 && (
                                 <div className="col-span-full h-[60vh] flex flex-col items-center justify-center bg-white rounded-2xl border border-gray-100 text-center">
                                     <div className="relative w-48 h-48 mb-8">
                                         <Image src="/images/demo-industrial.png" alt="Workspace" fill sizes="192px" className="object-contain" />
@@ -469,7 +617,9 @@ export default function Page() {
                                     <div className="space-y-3">
                                         <h3 className="text-4xl font-black text-gray-900 uppercase tracking-tighter italic">Studio Canvas</h3>
                                         <div className="w-10 h-0.5 bg-gray-900 mx-auto" />
-                                        <p className="text-sm text-gray-400 font-bold uppercase tracking-widest max-w-xs mx-auto">Select style themes from the sidebar to populate your workspace.</p>
+                                        <p className="text-sm text-gray-400 font-bold uppercase tracking-widest max-w-xs mx-auto">
+                                            {renderMode === 'standard' ? 'Select style themes from the sidebar to populate your workspace.' : 'Upload your room and style references to begin.'}
+                                        </p>
                                     </div>
                                 </div>
                             )}

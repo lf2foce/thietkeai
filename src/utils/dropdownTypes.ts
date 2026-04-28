@@ -8,7 +8,8 @@ export type themeType =
   | "Coastal"
   | "Industrial"
   | "Neoclassic"
-  | "Tribal";
+  | "Tribal"
+  | "Custom Style";
 
 export type roomType =
   | "Living Room"

@@ -139,13 +139,15 @@ function buildPrompt(room: string, theme: string, roomCondition: "raw" | "finish
 }
 
 export async function POST(request: NextRequest) {
-  const { imageUrl, theme, room, roomCondition } = await request.json();
+  const { imageUrl, imageUrls: multipleUrls, theme, room, roomCondition } = await request.json();
   const condition: "raw" | "finished" = roomCondition === "finished" ? "finished" : "raw";
   const prompt = buildPrompt(room, theme, condition);
 
+  const imagesToProcess = multipleUrls || imageUrl;
+
   try {
     const provider = getProvider();
-    const result = await provider.generate(imageUrl, prompt, room);
+    const result = await provider.generate(imagesToProcess, prompt, room);
     if (result.restoredImage) {
       return NextResponse.json({ id: result.id, status: "succeeded", restoredImage: result.restoredImage });
     }

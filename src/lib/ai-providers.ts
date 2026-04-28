@@ -7,12 +7,13 @@ export interface GenerationResult {
 }
 
 export interface AIProvider {
-  generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string; restoredImage?: string }>;
+  generate(imageUrl: string | string[], prompt: string, room?: string): Promise<{ id: string; restoredImage?: string }>;
   getStatus(id: string): Promise<GenerationResult>;
 }
 
 export class ReplicateProvider implements AIProvider {
-  async generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string }> {
+  async generate(imageUrl: string | string[], prompt: string, room?: string): Promise<{ id: string }> {
+    const mainImageUrl = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
     const response = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
@@ -22,7 +23,7 @@ export class ReplicateProvider implements AIProvider {
       body: JSON.stringify({
         version: "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38",
         input: {
-          image: imageUrl,
+          image: mainImageUrl,
           prompt: prompt,
           guidance_scale: 15,
           negative_prompt: "lowres, watermark, banner, logo, watermark, contactinfo, text, deformed, blurry, blur, out of focus, out of frame, surreal, extra, ugly, upholstered walls, fabric walls, plush walls, mirror, mirrored, functional, realistic",
@@ -70,31 +71,40 @@ export class GoogleGenAIProvider implements AIProvider {
     this.ai = new GoogleGenAI({ apiKey });
   }
 
-  async generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string; restoredImage?: string }> {
+  async generate(imageUrl: string | string[], prompt: string, room?: string): Promise<{ id: string; restoredImage?: string }> {
     const id = `google_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const imageUrls = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
 
-    let imagePart;
-    try {
-      const imageRes = await fetch(imageUrl);
-      const imageBuffer = await imageRes.arrayBuffer();
-      imagePart = {
-        inlineData: {
-          data: Buffer.from(imageBuffer).toString('base64'),
-          mimeType: 'image/jpeg'
-        }
-      };
-    } catch (err) {
-      console.warn("Failed to fetch original image, proceeding with text only:", err);
-    }
+    const imageParts = await Promise.all(imageUrls.map(async (url, index) => {
+      try {
+        const imageRes = await fetch(url);
+        const imageBuffer = await imageRes.arrayBuffer();
+        return {
+          inlineData: {
+            data: Buffer.from(imageBuffer).toString('base64'),
+            mimeType: 'image/jpeg'
+          }
+        };
+      } catch (err) {
+        console.warn(`Failed to fetch image ${index} from ${url}:`, err);
+        return null;
+      }
+    }));
+
+    const validImageParts = imageParts.filter(p => p !== null) as any[];
+
+    // If multiple images are provided, the first one is the target room and the others are style references
+    const finalPrompt = imageUrls.length > 1 
+      ? `Original room is the first image. Use the remaining images as style references. ${prompt} Output the result as a photorealistic image.`
+      : `${prompt} Output the result as a photorealistic image.`;
 
     const response = await this.ai.models.generateContent({
-      // model: 'models/gemini-2.5-flash-image',
       model: 'models/gemini-3.1-flash-image-preview',
       contents: [{
         role: 'user',
         parts: [
-          ...(imagePart ? [imagePart] : []),
-          { text: `${prompt} Output the result as a photorealistic image.` }
+          ...validImageParts,
+          { text: finalPrompt }
         ]
       }],
       config: { responseModalities: ["IMAGE"] },
