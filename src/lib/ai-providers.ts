@@ -7,7 +7,7 @@ export interface GenerationResult {
 }
 
 export interface AIProvider {
-  generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string }>;
+  generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string; restoredImage?: string }>;
   getStatus(id: string): Promise<GenerationResult>;
 }
 
@@ -59,10 +59,6 @@ export class ReplicateProvider implements AIProvider {
   }
 }
 
-// In-memory store for Google results (Simulated for this demo/small scale)
-// In a real production app, use a DB or KV store.
-const googleResultsCache = new Map<string, string>();
-
 export class GoogleGenAIProvider implements AIProvider {
   private ai: GoogleGenAI;
 
@@ -71,89 +67,51 @@ export class GoogleGenAIProvider implements AIProvider {
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY or GOOGLE_API_KEY is not defined in environment variables");
     }
-    this.ai = new GoogleGenAI({
-      apiKey: apiKey,
-    });
+    this.ai = new GoogleGenAI({ apiKey });
   }
 
-  async generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string }> {
-    // For Google, we'll perform the generation in the status check or here.
-    // To maintain the polling structure, we return a "job ID" that encodes the parameters.
-    // Or we just trigger it now and cache the result.
+  async generate(imageUrl: string, prompt: string, room?: string): Promise<{ id: string; restoredImage?: string }> {
     const id = `google_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    
-    // Trigger generation asynchronously (background task simulated via the fact that the first getStatus will trigger it)
-    googleResultsCache.set(id, JSON.stringify({ imageUrl, prompt, room, status: "pending" }));
-    
-    return { id };
+
+    let imagePart;
+    try {
+      const imageRes = await fetch(imageUrl);
+      const imageBuffer = await imageRes.arrayBuffer();
+      imagePart = {
+        inlineData: {
+          data: Buffer.from(imageBuffer).toString('base64'),
+          mimeType: 'image/jpeg'
+        }
+      };
+    } catch (err) {
+      console.warn("Failed to fetch original image, proceeding with text only:", err);
+    }
+
+    const response = await this.ai.models.generateContent({
+      model: 'models/gemini-2.5-flash-image',
+      contents: [{
+        role: 'user',
+        parts: [
+          ...(imagePart ? [imagePart] : []),
+          { text: `Remodel this room based on the following theme: ${prompt}. Maintain the structural layout of the room but update the furniture, colors, and lighting. Output the result as an image.` }
+        ]
+      }],
+      config: { responseModalities: ["IMAGE"] },
+    });
+
+    const generatedPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+    const generatedImage = generatedPart?.inlineData?.data;
+
+    if (!generatedImage) {
+      console.error("Gemini Response:", JSON.stringify(response, null, 2));
+      throw new Error("No images generated in Gemini response");
+    }
+
+    return { id, restoredImage: `data:image/jpeg;base64,${generatedImage}` };
   }
 
   async getStatus(id: string): Promise<GenerationResult> {
-    const cached = googleResultsCache.get(id);
-    if (!cached) return { status: "failed", error: "Job not found" };
-
-    const data = JSON.parse(cached);
-    if (data.status === "succeeded") {
-      return { status: "succeeded", restoredImage: data.image };
-    }
-    if (data.status === "failed") {
-      return { status: "failed", error: data.error };
-    }
-
-    // If pending, perform the generation now
-    try {
-      // Fetch the original image to use as a reference (Image-to-Image / Remodel)
-      let imagePart;
-      try {
-        const imageRes = await fetch(data.imageUrl);
-        const imageBuffer = await imageRes.arrayBuffer();
-        imagePart = {
-          inlineData: {
-            data: Buffer.from(imageBuffer).toString('base64'),
-            mimeType: 'image/jpeg'
-          }
-        };
-      } catch (err) {
-        console.warn("Failed to fetch original image for reference, proceeding with text only:", err);
-      }
-
-      // Using generateContent for Gemini multimodal models
-      const response = await this.ai.models.generateContent({
-        model: 'models/gemini-2.5-flash-image',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              ...(imagePart ? [imagePart] : []),
-              { text: `Remodel this room based on the following theme: ${data.prompt}. Maintain the structural layout of the room but update the furniture, colors, and lighting. Output the result as an image.` }
-            ]
-          }
-        ],
-        config: {
-          responseModalities: ["IMAGE"],
-          // responseMimeType: "image/jpeg", // Optional, depending on model support
-        },
-      });
-
-      // Extract the generated image from response parts
-      const generatedPart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-      const generatedImage = generatedPart?.inlineData?.data;
-
-      if (!generatedImage) {
-        console.error("Gemini Response:", JSON.stringify(response, null, 2));
-        throw new Error("No images generated in Gemini response");
-      }
-
-      // Convert base64 to a data URL for easy display
-      const imageUrl = `data:image/jpeg;base64,${generatedImage}`;
-      
-      googleResultsCache.set(id, JSON.stringify({ ...data, status: "succeeded", image: imageUrl }));
-      return { status: "succeeded", restoredImage: imageUrl };
-    } catch (error: any) {
-      console.error("Google GenAI Error:", error);
-      googleResultsCache.set(id, JSON.stringify({ ...data, status: "failed", error: error.message }));
-      return { status: "failed", error: error.message };
-    }
+    return { status: "failed", error: "Google provider uses synchronous generation" };
   }
 }
 

@@ -98,8 +98,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const provider = getProvider();
-    const { id } = await provider.generate(imageUrl, prompt, room);
-    return NextResponse.json({ id });
+    const result = await provider.generate(imageUrl, prompt, room);
+    if (result.restoredImage) {
+      return NextResponse.json({ id: result.id, status: "succeeded", restoredImage: result.restoredImage });
+    }
+    return NextResponse.json({ id: result.id });
   } catch (error: any) {
     console.error("Error in POST request:", error);
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
