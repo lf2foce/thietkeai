@@ -5,96 +5,143 @@ import { getProvider } from "@/lib/ai-providers";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-const roomPrompts = {
+const styleDescriptions: Record<string, Record<string, string>> = {
   Bedroom: {
-    Modern: "A modern bedroom featuring a sleek design with a low-profile bed, minimalist decor, and soft lighting.",
-    Minimalist: "A minimalist bedroom with clean lines, neutral colors, and a focus on simplicity and functionality.",
-    Professional: "A professional bedroom designed for productivity, featuring a comfortable workspace and organized layout.",
-    Tropical: "A tropical bedroom with vibrant colors, natural materials, and a relaxing atmosphere.",
-    Vintage: "A vintage bedroom with classic furniture, floral patterns, and a nostalgic charm.",
-    Summer: "A bright and airy summer-themed bedroom with light fabrics, seaside accents, and plenty of natural sunlight.",
-    Coastal: "A coastal bedroom with blue and white tones, rattan furniture, and ocean-inspired decor.",
-    Industrial: "An industrial bedroom featuring exposed brick walls, metal accents, and a modern aesthetic.",
-    Neoclassic: "A neoclassical bedroom with elegant moldings, a grand headboard, and sophisticated classical decor.",
-    Tribal: "A tribal-inspired bedroom with ethnic patterns, handcrafted wooden elements, and warm earth tones.",
+    Modern: "sleek low-profile bed, minimalist nightstands, recessed lighting, neutral tones with clean geometric lines",
+    Minimalist: "simple platform bed, neutral palette, uncluttered surfaces, functional minimal decor",
+    Professional: "organized layout, quality bedding, dedicated workspace corner, refined neutral tones",
+    Tropical: "rattan headboard, lush indoor plants, vibrant accent colors, natural woven textiles",
+    Vintage: "ornate wooden bed frame, floral patterns, warm amber lighting, retro decorative accents",
+    Summer: "light linen fabrics, breezy sheer curtains, pastel seaside accents, abundant natural light",
+    Coastal: "white-washed wood, blue and white tones, rattan furniture, ocean-inspired accessories",
+    Industrial: "exposed brick accent wall, metal bed frame, Edison bulbs, raw concrete and aged wood",
+    Neoclassic: "grand tufted headboard, crown moldings, elegant chandelier, symmetrical classical decor",
+    Tribal: "handcrafted wooden elements, ethnic patterned textiles, warm earth tones, artisan accessories",
   },
   "Living Room": {
-    Modern: "A modern living room with a plush sofa, geometric coffee table, and large windows allowing natural light to flood the space.",
-    Minimalist: "A minimalist living room with clean lines, neutral colors, and a focus on simplicity.",
-    Professional: "A sleek professional living room with premium furniture, an organized layout, and a sophisticated atmosphere.",
-    Tropical: "A luxury tropical living room with lush indoor plants, bamboo textures, and a bright, airy feel.",
-    Vintage: "A cozy vintage living room with mid-century modern furniture, retro decor, and warm lighting.",
-    Summer: "A vibrant summer living room with light breezy curtains, colorful accents, and a fresh, sunny atmosphere.",
-    Coastal: "A beautiful coastal living room with white-washed wood, nautical elements, and a calm seaside palette.",
-    Industrial: "An industrial-style living room featuring exposed brick walls, metal accents, and vintage leather furniture.",
-    Neoclassic: "An elegant neoclassical living room with classical columns, grand chandeliers, and sophisticated furniture.",
-    Tribal: "A tribal living room with handcrafted ethnic decor, patterned rugs, and natural textures.",
+    Modern: "plush sectional sofa, geometric coffee table, statement pendant lights, large floor-to-ceiling windows",
+    Minimalist: "low-profile sofa, monochromatic palette, open space, single art piece, hidden storage",
+    Professional: "premium leather seating, structured layout, refined color scheme, sophisticated lighting",
+    Tropical: "lush indoor palms, bamboo textures, rattan furniture, bright cushions, natural woven rugs",
+    Vintage: "mid-century modern sofa, retro floor lamp, warm wood tones, vintage art and decorative objects",
+    Summer: "light breezy linen curtains, colorful throw pillows, fresh flowers, sunny airy atmosphere",
+    Coastal: "white-washed wood furniture, nautical accents, rope details, calm blue-white-sand palette",
+    Industrial: "exposed brick wall, metal and leather sofa, Edison bulb fixtures, reclaimed wood coffee table",
+    Neoclassic: "grand sofa with gold trim, classical columns, elaborate chandelier, ornate moldings",
+    Tribal: "handcrafted patterned rugs, natural fiber cushions, wooden tribal art pieces, warm earth tones",
   },
   Kitchen: {
-    Modern: "A modern kitchen with sleek countertops, stainless steel appliances, and an open layout.",
-    Minimalist: "A minimalist kitchen with clean lines, a simple color palette, and functional design.",
-    Professional: "A professional kitchen equipped with high-end appliances and ample workspace for cooking.",
-    Tropical: "A tropical kitchen with bright colors, natural materials, and a fresh, inviting atmosphere.",
-    Vintage: "A vintage kitchen with retro appliances, classic cabinetry, and charming decor.",
-    Summer: "A sunny summer kitchen with light wood, fresh herbs, and a bright, cheerful design.",
-    Coastal: "A coastal kitchen with sea-glass colors, white cabinetry, and a relaxed beach-house feel.",
-    Industrial: "An industrial kitchen featuring metal accents, open shelving, and a modern aesthetic.",
-    Neoclassic: "A neoclassical kitchen with ornate cabinetry, marble countertops, and elegant light fixtures.",
-    Tribal: "A tribal-inspired kitchen with unique textures, handcrafted details, and warm natural tones.",
+    Modern: "sleek handleless cabinetry, quartz countertops, stainless steel appliances, integrated lighting",
+    Minimalist: "flat-front cabinets, single color palette, hidden appliances, clean uncluttered counters",
+    Professional: "chef-grade appliances, ample prep space, pot rack, professional-quality finishes",
+    Tropical: "bright cabinet colors, open shelving with plants, natural wood accents, fresh produce display",
+    Vintage: "shaker cabinets, retro pastel appliances, classic subway tile, farmhouse sink",
+    Summer: "light wood tones, open shelving with herbs, white marble counters, bright cheerful colors",
+    Coastal: "sea-glass cabinet colors, white shiplap, beadboard details, driftwood accents",
+    Industrial: "open metal shelving, concrete countertops, stainless fixtures, exposed ductwork",
+    Neoclassic: "ornate raised-panel cabinets, marble countertops, decorative range hood, elegant hardware",
+    Tribal: "hand-painted tile backsplash, handcrafted wooden details, warm terracotta tones, artisan pottery",
   },
   Bathroom: {
-    Modern: "A modern bathroom with sleek fixtures, clean lines, and a minimalist design.",
-    Minimalist: "A minimalist bathroom with a focus on simplicity, featuring neutral colors and functional design.",
-    Professional: "A professional bathroom designed for efficiency, featuring ample storage and modern fixtures.",
-    Tropical: "A tropical bathroom with vibrant colors, natural materials, and a spa-like atmosphere.",
-    Vintage: "A vintage bathroom with classic fixtures, patterned tiles, and a nostalgic charm.",
-    Summer: "A bright summer bathroom with light colors, airy curtains, and a fresh, clean feel.",
-    Coastal: "A coastal bathroom with shell decor, blue accents, and a relaxed seaside vibe.",
-    Industrial: "An industrial bathroom featuring metal fixtures, exposed pipes, and a modern aesthetic.",
-    Neoclassic: "A neoclassical bathroom with marble finishes, elegant gold fixtures, and classical details.",
-    Tribal: "A tribal bathroom with ethnic patterns, natural stone elements, and a unique cultural touch.",
+    Modern: "floating vanity, frameless glass shower, large format tiles, LED mirror, matte black fixtures",
+    Minimalist: "vessel sink, neutral tiles, concealed storage, simple rectangular mirror, minimal decor",
+    Professional: "double vanity, walk-in shower, ample storage, neutral refined finishes",
+    Tropical: "natural stone tiles, rainfall showerhead, indoor plant, warm wood accents, spa-like ambiance",
+    Vintage: "clawfoot tub, pedestal sink, hexagon floor tiles, brass fixtures, framed mirror",
+    Summer: "light pastel tiles, sheer curtains, fresh white finishes, natural woven bath mat",
+    Coastal: "pebble floor tiles, blue glass mosaic accents, driftwood accessories, seashell decor",
+    Industrial: "exposed pipe fixtures, concrete sink, metro tiles, vintage Edison bulb vanity light",
+    Neoclassic: "marble surfaces, gold fixtures, ornate mirror frame, freestanding bathtub, classical moldings",
+    Tribal: "terracotta tiles, ethnic pattern bath mat, natural stone basin, handcrafted wooden accessories",
   },
   Office: {
-    Modern: "A modern home office with a large desk, ergonomic chair, and shelves filled with books and decorative items.",
-    Minimalist: "A minimalist office space with a simple desk, clean lines, and a focus on productivity.",
-    Professional: "A professional office designed for efficiency, featuring ample workspace and organized storage.",
-    Tropical: "A tropical office with bright colors, natural materials, and a refreshing atmosphere.",
-    Vintage: "A vintage office with classic furniture, warm colors, and a nostalgic charm.",
-    Summer: "A bright summer home office with light furniture, sunny views, and a fresh, inspiring atmosphere.",
-    Coastal: "A coastal office with light wood, nautical accents, and a peaceful beach-house feel.",
-    Industrial: "An industrial office featuring metal accents, open shelving, and a modern aesthetic.",
-    Neoclassic: "A neoclassical office with a grand desk, elegant moldings, and sophisticated decor.",
-    Tribal: "A tribal-inspired office with handcrafted elements, ethnic patterns, and a warm, creative vibe.",
+    Modern: "large L-shaped desk, ergonomic chair, built-in shelving, cable management, clean minimal decor",
+    Minimalist: "simple floating desk, single monitor, hidden storage, no-clutter surfaces, neutral tones",
+    Professional: "executive desk, leather chair, organized bookshelves, professional diploma wall",
+    Tropical: "bamboo desk, lush plants, bright colors, natural light, woven storage baskets",
+    Vintage: "antique wooden desk, leather chair, warm bookshelves, vintage globe, warm lamp light",
+    Summer: "white desk, natural light, potted succulents, cheerful accents, airy curtains",
+    Coastal: "light wood desk, nautical artwork, wicker storage, blue accents, sea breeze atmosphere",
+    Industrial: "metal and wood desk, pipe shelving, exposed brick, vintage file cabinets, Edison bulb lamp",
+    Neoclassic: "grand writing desk, Chesterfield chair, floor-to-ceiling bookshelves, ornate moldings",
+    Tribal: "handcrafted wooden desk, ethnic pattern rug, artisan pottery accents, warm ambient lighting",
   },
   "Dining Room": {
-    Modern: "A modern dining room with a sleek table, contemporary chairs, and elegant lighting.",
-    Minimalist: "A minimalist dining room with clean lines, a simple color palette, and functional design.",
-    Professional: "A professional dining room designed for meetings, featuring a large table and comfortable seating.",
-    Tropical: "A tropical dining room with bright colors, natural materials, and a fresh, inviting atmosphere.",
-    Vintage: "A vintage dining room with classic furniture, patterned tablecloths, and charming decor.",
-    Summer: "A bright summer dining room with light linens, fresh flowers, and a sunny, festive atmosphere.",
-    Coastal: "A coastal dining room with driftwood furniture, blue accents, and a relaxed seaside feel.",
-    Industrial: "An industrial dining room featuring metal accents, open shelving, and a modern aesthetic.",
-    Neoclassic: "A neoclassical dining room with a grand table, elegant chandelier, and classical moldings.",
-    Tribal: "A tribal dining room with ethnic patterns, handcrafted table settings, and warm natural textures.",
+    Modern: "rectangular extendable table, sculptural chairs, geometric pendant light, minimal centerpiece",
+    Minimalist: "simple table, monochromatic chairs, single pendant light, no clutter",
+    Professional: "long conference-style table, upholstered chairs, sophisticated lighting, refined setting",
+    Tropical: "round wooden table, colorful cushioned chairs, tropical floral centerpiece, wicker accents",
+    Vintage: "farmhouse table, mismatched vintage chairs, candelabra, floral tablecloth, warm patina",
+    Summer: "light wood table, linen chair covers, fresh flower centerpiece, bright festive atmosphere",
+    Coastal: "driftwood table, cross-back chairs, lantern pendant, blue-white-sand linen",
+    Industrial: "metal and reclaimed wood table, mixed metal chairs, factory pendant lights, exposed brick",
+    Neoclassic: "grand oval table, Chippendale chairs, crystal chandelier, formal place settings, ornate moldings",
+    Tribal: "round wooden table, handcrafted wicker chairs, ethnic runner, clay pottery centerpiece",
   },
   "Gaming Room": {
-    Modern: "A modern gaming room with sleek gaming setups, LED lighting, and comfortable seating.",
-    Minimalist: "A minimalist gaming room with clean lines, a simple color palette, and functional design.",
-    Professional: "A professional gaming room designed for eSports, featuring high-end equipment and ample space.",
-    Tropical: "A tropical gaming room with vibrant colors, natural materials, and a fun atmosphere.",
-    Vintage: "A vintage gaming room with retro gaming consoles, classic decor, and nostalgic charm.",
-    Summer: "A bright summer gaming room with neon lights, tropical accents, and a high-energy vibe.",
-    Coastal: "A coastal gaming room with light wood, blue LED accents, and a relaxed beach-house style.",
-    Industrial: "An industrial gaming room featuring metal accents, exposed pipes, and a modern aesthetic.",
-    Neoclassic: "A neoclassical gaming room with sophisticated furniture, classical decor, and a unique high-end feel.",
-    Tribal: "A tribal-inspired gaming room with unique handcrafted decor, ethnic patterns, and a creative atmosphere.",
+    Modern: "sleek gaming desk, racing chair, multi-monitor setup, RGB LED strip lighting, cable management",
+    Minimalist: "minimal white desk, single monitor, wireless peripherals, clean hidden cable setup",
+    Professional: "dual monitor stand, acoustic panels, professional streaming setup, organized peripherals",
+    Tropical: "bright accent colors, tropical wall art, comfortable bean bags, fun energetic atmosphere",
+    Vintage: "retro gaming console display, CRT monitor, vintage arcade cabinet, nostalgic neon signs",
+    Summer: "neon accent lighting, colorful wall art, tropical gaming accents, high-energy vibrant decor",
+    Coastal: "light wood desk, blue LED accents, surfboard wall art, relaxed beach-house gaming setup",
+    Industrial: "metal pipe shelving for consoles, exposed brick, Edison bulbs, rugged industrial desk",
+    Neoclassic: "ornate desk, velvet gaming chair, gallery wall with framed game art, elegant gold accents",
+    Tribal: "handcrafted wooden desk, ethnic pattern rug, artisan decorative accents, warm ambient glow",
   },
 };
 
+const roomElectronics: Record<string, string> = {
+  "Living Room": "a mounted flat-screen TV on the wall with a sleek media console below, set-top box, decorative items on shelves",
+  Bedroom: "bedside lamps with smart plugs, a wall-mounted TV if space allows, an alarm clock, phone charger station",
+  Kitchen: "built-in refrigerator, oven and stovetop, range hood, dishwasher, microwave, kettle, small appliances on counter",
+  Bathroom: "towel warmer, modern hairdryer holder, electric toothbrush stand, LED mirror with backlight",
+  Office: "desktop computer or laptop on desk, dual monitors, desk lamp, printer, cable management tray, USB hub",
+  "Dining Room": "a statement chandelier or pendant light over the table, a sideboard with wine rack and glassware",
+  "Gaming Room": "gaming PC tower or console (PS5/Xbox), dual monitors with RGB lighting, gaming headset stand, streaming mic, LED strip lights behind desk",
+};
+
+function buildPrompt(room: string, theme: string, roomCondition: "raw" | "finished"): string {
+  const styleDetails = styleDescriptions[room]?.[theme] || `${theme} style furnishings and decor`;
+  const electronics = roomElectronics[room] || "appropriate appliances and electronics for the room";
+
+  if (roomCondition === "raw") {
+    return (
+      `You are a professional interior design visualizer. ` +
+      `GOAL: Create a COMPLETE INTERIOR DESIGN CONCEPT of this raw, empty, or under-construction ${room.toLowerCase()} — ` +
+      `showing clients a full, inspiring vision of what the finished space will look like in ${theme} style. ` +
+      `This is a design idea presentation: every surface, every corner must be fully designed and decorated so the viewer immediately understands the lifestyle this space offers. ` +
+
+      `STRICT STRUCTURAL RULE: Preserve every wall, window frame, ceiling height, beam, concrete column, door opening, and room proportion EXACTLY as they appear in the original photo. Do NOT move, resize, or remove any architectural element. Only add on top. ` +
+
+      `COMPLETE THE ENTIRE SPACE — nothing left bare: ` +
+      `(1) SURFACES: ${theme}-style finished flooring across the entire floor, painted or textured walls, ceiling treatment with built-in cove or recessed lighting. ` +
+      `(2) FURNITURE: Full furniture set filling all functional zones — ${styleDetails}. No empty corners, no unfurnished walls. ` +
+      `(3) ELECTRONICS & APPLIANCES: ${electronics}. All fully installed, cables hidden, screens powered on showing content. ` +
+      `(4) SOFT FURNISHINGS: Curtains or blinds on every window styled to the ${theme} palette, area rugs anchoring seating zones, cushions and throws layered on all seating. ` +
+      `(5) DECORATIVE DETAILS: Artwork or mirrors on every significant wall, potted plants or greenery, books, candles, vases, table objects — layered and dense like a luxury show home ready for a magazine shoot. ` +
+      `(6) LIGHTING ATMOSPHERE: Realistic warm ambient light complementing the natural light from the original windows; include lit pendant lights, floor lamps, and accent lighting appropriate to ${theme} style. ` +
+
+      `OUTPUT: Photorealistic — indistinguishable from a professional interior photography shoot. Not a 3D render, not an illustration. The result must make the viewer say "I want to live here."`
+    );
+  } else {
+    return (
+      `Transform the interior style of this decorated ${room.toLowerCase()} to ${theme} theme. ` +
+      `CRITICAL: Preserve the exact room layout — same camera angle, wall positions, window locations, ` +
+      `ceiling structure, and spatial proportions must remain unchanged. ` +
+      `Replace furniture, change wall colors, update fabrics, lighting fixtures, and decorative elements to: ${styleDetails}. ` +
+      `Also update any visible electronics and appliances to match the ${theme} aesthetic: ${electronics}. ` +
+      `Keep the photo's exact framing, perspective, and natural lighting direction. ` +
+      `The result must look like a professional interior redesign photo for advertising use.`
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
-  const { imageUrl, theme, room } = await request.json();
-  const prompt = roomPrompts[room as keyof typeof roomPrompts]?.[theme as any] || "A beautiful room.";
+  const { imageUrl, theme, room, roomCondition } = await request.json();
+  const condition: "raw" | "finished" = roomCondition === "finished" ? "finished" : "raw";
+  const prompt = buildPrompt(room, theme, condition);
 
   try {
     const provider = getProvider();

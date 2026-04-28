@@ -23,7 +23,7 @@ export class ReplicateProvider implements AIProvider {
         version: "76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38",
         input: {
           image: imageUrl,
-          prompt: `${room ? room + " " : ""}${prompt}`,
+          prompt: prompt,
           guidance_scale: 15,
           negative_prompt: "lowres, watermark, banner, logo, watermark, contactinfo, text, deformed, blurry, blur, out of focus, out of frame, surreal, extra, ugly, upholstered walls, fabric walls, plush walls, mirror, mirrored, functional, realistic",
           prompt_strength: 0.8,
@@ -88,12 +88,13 @@ export class GoogleGenAIProvider implements AIProvider {
     }
 
     const response = await this.ai.models.generateContent({
-      model: 'models/gemini-2.5-flash-image',
+      // model: 'models/gemini-2.5-flash-image',
+      model: 'models/gemini-3.1-flash-image-preview',
       contents: [{
         role: 'user',
         parts: [
           ...(imagePart ? [imagePart] : []),
-          { text: `Remodel this room based on the following theme: ${prompt}. Maintain the structural layout of the room but update the furniture, colors, and lighting. Output the result as an image.` }
+          { text: `${prompt} Output the result as a photorealistic image.` }
         ]
       }],
       config: { responseModalities: ["IMAGE"] },

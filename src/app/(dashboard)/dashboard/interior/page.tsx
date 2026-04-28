@@ -29,6 +29,7 @@ export default function Page() {
     const [room, setRoom] = useState<roomType>("Living Room");
     const [quality, setQuality] = useState<qualityType>("Pro - 2 credits");
     const [selectedThemes, setSelectedThemes] = useState<themeType[]>(["Modern"]);
+    const [roomCondition, setRoomCondition] = useState<"raw" | "finished">("raw");
     const [predictions, setPredictions] = useState<Record<string, PredictionState>>({});
     const [isUploading, setIsUploading] = useState(false);
     const [modalImage, setModalImage] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export default function Page() {
             const res = await fetch("/api/gen", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ imageUrl: fileUrl, theme, room }),
+                body: JSON.stringify({ imageUrl: fileUrl, theme, room, roomCondition }),
             });
 
             const data = await res.json();
@@ -242,26 +243,60 @@ export default function Page() {
                         {!imageUrl && !previewUrl ? (
                             <div
                                 onClick={() => fileInputRef.current?.click()}
-                                className="group cursor-pointer flex flex-col items-center justify-center rounded-[2rem] border-2 border-dashed border-gray-200 py-12 transition-all hover:border-gray-900 hover:bg-white"
+                                className="group cursor-pointer flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 transition-all hover:border-gray-900 hover:bg-white"
                             >
                                 <ArrowUpTrayIcon className="w-8 h-8 text-gray-300 group-hover:text-gray-900 transition-colors" />
                                 <p className="mt-3 text-[10px] font-black text-gray-400 uppercase">Click to upload</p>
                                 <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileSelect} />
                             </div>
                         ) : (
-                            <div className="relative group rounded-[2rem] overflow-hidden ring-1 ring-gray-100 aspect-[4/3] w-full">
+                            <div className="relative group rounded-xl overflow-hidden ring-1 ring-gray-100 aspect-[4/3] w-full">
                                 <Image src={previewUrl || imageUrl || ""} alt="Preview" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-white uppercase border border-white/50 px-6 py-2.5 rounded-2xl backdrop-blur-md hover:bg-white hover:text-black transition-all">Change Photo</button>
+                                    <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-white uppercase border border-white/50 px-6 py-2.5 rounded-lg backdrop-blur-md hover:bg-white hover:text-black transition-all">Change Photo</button>
                                 </div>
                                 <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleFileSelect} />
                             </div>
                         )}
                     </section>
 
-                    {/* 2. Room Type */}
+                    {/* 1.5 Room Condition */}
                     <section className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">2. Room Type</label>
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">2. Room Condition</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => setRoomCondition("raw")}
+                                className={clsx(
+                                    "py-3 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                                    roomCondition === "raw"
+                                        ? "bg-gray-900 text-white"
+                                        : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                                )}
+                            >
+                                Raw / Empty
+                            </button>
+                            <button
+                                onClick={() => setRoomCondition("finished")}
+                                className={clsx(
+                                    "py-3 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                                    roomCondition === "finished"
+                                        ? "bg-gray-900 text-white"
+                                        : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                                )}
+                            >
+                                Decorated
+                            </button>
+                        </div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider px-1">
+                            {roomCondition === "raw"
+                                ? "Beautify & furnish an empty/construction room"
+                                : "Change the style of an already decorated room"}
+                        </p>
+                    </section>
+
+                    {/* 3. Room Type */}
+                    <section className="space-y-2">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">3. Room Type</label>
                         <DropDown
                             theme={room}
                             setTheme={(newRoom) => startTransition(() => setRoom(newRoom as roomType))}
@@ -272,7 +307,7 @@ export default function Page() {
                     {/* 3. Themes */}
                     <section className="space-y-4">
                         <div className="flex items-center justify-between px-1">
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">3. Style Themes</label>
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">4. Style Themes</label>
                             <span className="text-[10px] font-black text-gray-900 bg-gray-100 px-3 py-1 rounded-full">{selectedThemes.length}/4</span>
                         </div>
                         <div className="grid grid-cols-3 gap-y-4 gap-x-3">
@@ -281,7 +316,7 @@ export default function Page() {
                                     <div
                                         onClick={() => toggleTheme(t.name)}
                                         className={clsx(
-                                            "relative aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all duration-200",
+                                            "relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all duration-200",
                                             selectedThemes.includes(t.name) ? "border-gray-900 scale-105" : "border-transparent ring-1 ring-gray-100 hover:ring-gray-300"
                                         )}
                                     >
@@ -295,7 +330,7 @@ export default function Page() {
                                         )}
                                     </div>
                                     <p className={clsx(
-                                        "text-[10px] font-medium text-center truncate",
+                                        "text-xs font-bold text-center truncate",
                                         selectedThemes.includes(t.name) ? "text-gray-900" : "text-gray-400"
                                     )}>
                                         {t.name}
@@ -319,7 +354,7 @@ export default function Page() {
                         <button
                             onClick={handleUpload}
                             disabled={isUploading || isGenerating || (!selectedFile && !imageUrl)}
-                            className="w-full py-5 bg-gray-900 text-white text-base font-black rounded-[2rem] hover:bg-black transition-all transform active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-3"
+                            className="w-full py-5 bg-gray-900 text-white text-base font-black rounded-xl hover:bg-black transition-all transform active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-3"
                         >
                             {isUploading || isGenerating ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -335,7 +370,7 @@ export default function Page() {
                     </div>
 
                     {error && (
-                        <p className="text-[10px] font-black text-red-500 text-center uppercase tracking-tighter bg-red-50 py-3 rounded-2xl border border-red-100">{error}</p>
+                        <p className="text-[10px] font-black text-red-500 text-center uppercase tracking-tighter bg-red-50 py-3 rounded-lg border border-red-100">{error}</p>
                     )}
                 </div>
 
@@ -364,7 +399,7 @@ export default function Page() {
                             {/* Predictions in theme order */}
                             {sortedPredictions.map((p) => (
                                 <div key={p.id} className="group space-y-4">
-                                    <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-white border border-gray-100">
+                                    <div className="relative aspect-square rounded-xl overflow-hidden bg-white border border-gray-100">
                                         {p.status === "queued" ? (
                                             <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-gray-50">
                                                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mb-5 animate-pulse">
@@ -410,7 +445,7 @@ export default function Page() {
                                 .filter(themeName => !sortedPredictions.some(p => p.theme === themeName))
                                 .map((themeName) => (
                                     <div key={themeName} className="space-y-4 opacity-50">
-                                        <div className="relative aspect-square rounded-[2rem] border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
+                                        <div className="relative aspect-square rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center">
                                             <div className="text-center space-y-2">
                                                 <div className="w-12 h-12 bg-gray-100 rounded-full mx-auto flex items-center justify-center border border-gray-200">
                                                     <Image src={themes.find(t => t.name === themeName)?.image || ""} alt="Draft" width={24} height={24} className="opacity-40 grayscale rounded-lg" />
@@ -427,7 +462,7 @@ export default function Page() {
 
                             {/* Empty state */}
                             {selectedThemes.length === 0 && Object.keys(predictions).length === 0 && (
-                                <div className="col-span-full h-[60vh] flex flex-col items-center justify-center bg-white rounded-[3rem] border border-gray-100 text-center">
+                                <div className="col-span-full h-[60vh] flex flex-col items-center justify-center bg-white rounded-2xl border border-gray-100 text-center">
                                     <div className="relative w-48 h-48 mb-8">
                                         <Image src="/images/demo-industrial.png" alt="Workspace" fill sizes="192px" className="object-contain" />
                                     </div>
