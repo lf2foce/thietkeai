@@ -1,6 +1,6 @@
 import { db } from "./index";
 import { users, generations } from "./schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { currentUser } from "@clerk/nextjs/server";
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
@@ -51,6 +51,7 @@ export async function getOrCreateUser(userId: string, emailHint?: string | null)
   return created;
 }
 
+
 export async function consumeQuota(userId: string, cost = 1): Promise<ConsumeResult> {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) return { ok: false, reason: "no_quota", message: "User not found" };
@@ -73,9 +74,11 @@ export async function consumeQuota(userId: string, cost = 1): Promise<ConsumeRes
     };
   }
 
+  const periodStart = getPeriodStart(user.plan);
+
   await db.update(users).set({
-    quotaUsed: currentUsed + cost,
-    quotaResetAt: periodExpired ? getPeriodStart(user.plan) : user.quotaResetAt,
+    quotaUsed: periodExpired ? cost : sql`${users.quotaUsed} + ${cost}`,
+    quotaResetAt: periodExpired ? periodStart : user.quotaResetAt,
     updatedAt: now,
   }).where(eq(users.id, userId));
 
