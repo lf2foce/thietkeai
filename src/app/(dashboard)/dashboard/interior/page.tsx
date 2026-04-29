@@ -50,6 +50,8 @@ export default function Page() {
         const bi = selectedThemes.indexOf(b.theme);
         return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     });
+    const succeededCount = sortedPredictions.filter(p => p.status === 'succeeded').length;
+    const totalTargets = renderMode === 'style-ref' ? 1 : selectedThemes.length;
 
     // Ref to hold current blob URLs for unmount cleanup
     const urlsRef = useRef<string[]>([]);
@@ -197,6 +199,7 @@ export default function Page() {
         setImageUrl(null);
         setImageUrls([]);
         setPredictions({});
+        setError(null);
         
         // Reset input value so same file can be selected again
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -219,6 +222,7 @@ export default function Page() {
         setImageUrl(null);
         setImageUrls([]);
         setPredictions({});
+        setError(null);
     }, []);
 
     const hasSelection = renderMode === 'style-ref' ? (selectedFiles.length > 0 || imageUrls.length > 0) : (!!selectedFile || !!imageUrl);
@@ -273,6 +277,7 @@ export default function Page() {
         setPreviewUrl(null);
         setPreviewUrls([]);
         setPredictions({});
+        setError(null);
     };
 
     const downloadImage = async (url: string, filename: string) => {
@@ -299,6 +304,9 @@ export default function Page() {
         {modalImage && (
             <div
                 className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Image preview"
                 onClick={() => setModalImage(null)}
             >
                 <img
@@ -310,6 +318,7 @@ export default function Page() {
                 <button
                     onClick={() => setModalImage(null)}
                     className="absolute top-4 right-4 text-white/60 hover:text-white text-2xl font-light leading-none"
+                    aria-label="Close image preview"
                 >✕</button>
             </div>
         )}
@@ -322,10 +331,11 @@ export default function Page() {
 
                     {/* 0. Generation Mode */}
                     <section className="space-y-3">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Render Mode</label>
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Render Mode</p>
                         <div className="flex bg-gray-100 p-1 rounded-xl">
                             <button
                                 onClick={() => { setRenderMode("standard"); clearImage(); }}
+                                aria-pressed={renderMode === "standard"}
                                 className={clsx(
                                     "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
                                     renderMode === "standard" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
@@ -335,6 +345,7 @@ export default function Page() {
                             </button>
                             <button
                                 onClick={() => { setRenderMode("style-ref"); clearImage(); }}
+                                aria-pressed={renderMode === "style-ref"}
                                 className={clsx(
                                     "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
                                     renderMode === "style-ref" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
@@ -348,9 +359,9 @@ export default function Page() {
                     {/* 1. Upload */}
                     <section className="space-y-3">
                         <div className="flex items-center justify-between px-1">
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
                                 {renderMode === 'style-ref' ? '1. Room + Styles' : '1. Original Room'}
-                            </label>
+                            </p>
                             {renderMode === 'style-ref' && (
                                 <span className="text-[9px] font-bold text-gray-400 uppercase bg-gray-100 px-2 py-0.5 rounded">Multi-upload</span>
                             )}
@@ -358,7 +369,16 @@ export default function Page() {
                         
                         {!imageUrl && !previewUrl && previewUrls.length === 0 ? (
                             <div
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => fileInputRef.current?.click()}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        fileInputRef.current?.click();
+                                    }
+                                }}
+                                aria-label={renderMode === 'style-ref' ? 'Upload room and style references' : 'Upload room'}
                                 className="group cursor-pointer flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 transition-all hover:border-gray-900 hover:bg-white"
                             >
                                 <ArrowUpTrayIcon className="w-8 h-8 text-gray-300 group-hover:text-gray-900 transition-colors" />
@@ -390,6 +410,7 @@ export default function Page() {
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); removeFile(i); }}
                                                     className="absolute top-1 right-1 bg-black/40 hover:bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all z-10"
+                                                    aria-label={`Remove image ${i + 1}`}
                                                 >
                                                     <XMarkIcon className="w-3 h-3" />
                                                 </button>
@@ -398,6 +419,7 @@ export default function Page() {
                                         <button 
                                             onClick={() => fileInputRef.current?.click()}
                                             className="aspect-square flex items-center justify-center rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-900 transition-all group"
+                                            aria-label="Add more reference images"
                                         >
                                             <ArrowUpTrayIcon className="w-4 h-4 text-gray-300 group-hover:text-gray-900" />
                                         </button>
@@ -406,7 +428,7 @@ export default function Page() {
                                     <div className="relative group rounded-xl overflow-hidden ring-1 ring-gray-100 aspect-[4/3] w-full">
                                         <Image src={previewUrl || imageUrl || ""} alt="Preview" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-white uppercase border border-white/50 px-6 py-2.5 rounded-lg backdrop-blur-md hover:bg-white hover:text-black transition-all">Change Photo</button>
+                                            <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-white uppercase border border-white/50 px-6 py-2.5 rounded-lg backdrop-blur-md hover:bg-white hover:text-black transition-all" aria-label="Change uploaded photo">Change Photo</button>
                                         </div>
                                     </div>
                                 )}
@@ -425,10 +447,11 @@ export default function Page() {
 
                     {/* 1.5 Room Condition */}
                     <section className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">2. Room Condition</label>
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">2. Room Condition</p>
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 onClick={() => setRoomCondition("raw")}
+                                aria-pressed={roomCondition === "raw"}
                                 className={clsx(
                                     "py-3 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
                                     roomCondition === "raw"
@@ -440,6 +463,7 @@ export default function Page() {
                             </button>
                             <button
                                 onClick={() => setRoomCondition("finished")}
+                                aria-pressed={roomCondition === "finished"}
                                 className={clsx(
                                     "py-3 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
                                     roomCondition === "finished"
@@ -459,7 +483,7 @@ export default function Page() {
 
                     {/* 3. Room Type */}
                     <section className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">3. Room Type</label>
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">3. Room Type</p>
                         <DropDown
                             theme={room}
                             setTheme={(newRoom) => startTransition(() => setRoom(newRoom as roomType))}
@@ -471,7 +495,7 @@ export default function Page() {
                     {renderMode === 'standard' && (
                         <section className="space-y-4">
                             <div className="flex items-center justify-between px-1">
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">4. Style Themes</label>
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">4. Style Themes</p>
                                 <span className="text-[10px] font-black text-gray-900 bg-gray-100 px-3 py-1 rounded-full">{selectedThemes.length}/4</span>
                             </div>
                             <div className="grid grid-cols-3 gap-y-4 gap-x-3">
@@ -479,6 +503,16 @@ export default function Page() {
                                     <div key={t.name} className="space-y-1.5">
                                         <div
                                             onClick={() => toggleTheme(t.name)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    toggleTheme(t.name);
+                                                }
+                                            }}
+                                            role="button"
+                                            tabIndex={0}
+                                            aria-pressed={selectedThemes.includes(t.name)}
+                                            aria-label={`Toggle ${t.name} theme`}
                                             className={clsx(
                                                 "relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all duration-200",
                                                 selectedThemes.includes(t.name) ? "border-gray-900 scale-105" : "border-transparent ring-1 ring-gray-100 hover:ring-gray-300"
@@ -508,7 +542,7 @@ export default function Page() {
                     {/* 4. Custom Prompt - Only show in Style Ref mode */}
                     {renderMode === 'style-ref' && (
                         <section className="space-y-4">
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">4. Custom Prompt (Optional)</label>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">4. Custom Prompt (Optional)</p>
                             <textarea
                                 value={customPrompt}
                                 onChange={(e) => setCustomPrompt(e.target.value)}
@@ -521,7 +555,7 @@ export default function Page() {
                     {/* Quality + Render */}
                     <div className="space-y-4 pt-6 border-t border-gray-100">
                         <section className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Render Quality</label>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Render Quality</p>
                             <DropDown
                                 theme={quality}
                                 setTheme={(newQuality) => startTransition(() => setQuality(newQuality as qualityType))}
@@ -550,7 +584,7 @@ export default function Page() {
                     </div>
 
                     {error && (
-                        <p className="text-[10px] font-black text-red-500 text-center uppercase tracking-tighter bg-red-50 py-3 rounded-lg border border-red-100">{error}</p>
+                        <p aria-live="polite" className="text-[10px] font-black text-red-500 text-center uppercase tracking-tighter bg-red-50 py-3 rounded-lg border border-red-100">{error}</p>
                     )}
                 </div>
 
@@ -566,11 +600,11 @@ export default function Page() {
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Generation Progress</span>
                                     <span className="text-xs font-black text-gray-900">
-                                        {sortedPredictions.filter(p => p.status === 'succeeded').length} / {renderMode === 'style-ref' ? 1 : selectedThemes.length}
+                                        {totalTargets === 0 ? '0 / 1' : `${succeededCount} / ${totalTargets}`}
                                     </span>
                                 </div>
                                 <div className="w-64 h-1 bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-gray-900 transition-all duration-700 ease-out" style={{ width: `${(sortedPredictions.filter(p => p.status === 'succeeded').length / Math.max(renderMode === 'style-ref' ? 1 : selectedThemes.length, 1)) * 100}%` }} />
+                                    <div className="h-full bg-gray-900 transition-all duration-700 ease-out" style={{ width: `${(succeededCount / Math.max(totalTargets, 1)) * 100}%` }} />
                                 </div>
                             </div>
                         </div>
@@ -594,6 +628,15 @@ export default function Page() {
                                                 alt={p.theme}
                                                 className="absolute inset-0 w-full h-full object-cover cursor-zoom-in"
                                                 onClick={() => setModalImage(p.resultUrl!)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        setModalImage(p.resultUrl!);
+                                                    }
+                                                }}
+                                                role="button"
+                                                tabIndex={0}
+                                                aria-label={`Open ${p.theme} preview`}
                                             />
                                         ) : (
                                             <div className="absolute inset-0 bg-gray-50 flex items-center justify-center p-6">
@@ -612,6 +655,7 @@ export default function Page() {
                                                 onClick={() => downloadImage(p.resultUrl!, `${p.theme}-${room}.jpg`)}
                                                 className="bg-gray-900 text-white p-2.5 rounded-xl transition-all hover:bg-gray-700 active:scale-90"
                                                 title="Download"
+                                                aria-label={`Download ${p.theme} image`}
                                             >
                                                 <ArrowUpTrayIcon className="w-4 h-4 -rotate-180" />
                                             </button>
