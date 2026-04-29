@@ -27,8 +27,7 @@ export default async function UploadedPage() {
   }
 
   const images = await db.query.images.findMany({
-    where: (images, { and, eq }) =>
-      and(eq(images.userId, userId), eq(images.type, 'processed')),
+    where: (images, { eq }) => eq(images.userId, userId),
     orderBy: (images, { desc }) => [desc(images.createdAt)],
   });
 

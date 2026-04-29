@@ -8,12 +8,22 @@ import {
   ArrowRightIcon,
   XMarkIcon,
   PhotoIcon,
+  ArrowsRightLeftIcon,
 } from '@heroicons/react/24/outline';
 
 type GalleryImage = {
   id: number;
   url: string;
   name: string | null;
+  createdAt: Date;
+  type: string;
+  originalImageId: string | null;
+};
+
+type ImagePair = {
+  id: string;
+  processed: GalleryImage;
+  original?: GalleryImage;
   createdAt: Date;
 };
 
@@ -36,20 +46,49 @@ export default function GalleryClient({ images }: GalleryClientProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const activeImage = activeIndex === null ? null : images[activeIndex];
-  const totalImages = images.length;
-  const latestImage = images[0];
-  const totalPages = Math.ceil(totalImages / PAGE_SIZE);
+  const pairedImages = useMemo(() => {
+    const processed = images.filter((img) => img.type === 'processed');
+    const originals = images.filter((img) => img.type === 'original');
+    
+    const originalMap = new Map<string, GalleryImage>();
+    originals.forEach((img) => {
+      if (img.originalImageId) {
+        originalMap.set(img.originalImageId, img);
+      } else {
+        // Fallback for older images where originalImageId was not saved.
+        // The UploadThing URL contains the file key at the end (which is used as originalImageId for processed images).
+        const keyFromUrl = img.url.split('/').pop();
+        if (keyFromUrl) {
+           originalMap.set(keyFromUrl, img);
+        }
+      }
+    });
 
-  const currentImages = useMemo(() => {
+    const pairs: ImagePair[] = processed.map((proc) => ({
+      id: String(proc.id),
+      processed: proc,
+      original: proc.originalImageId ? originalMap.get(proc.originalImageId) : undefined,
+      createdAt: proc.createdAt,
+    }));
+
+    // Sort by created descending
+    return pairs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }, [images]);
+
+  const activePair = activeIndex === null ? null : pairedImages[activeIndex];
+  const totalPairs = pairedImages.length;
+  const latestPair = pairedImages[0];
+  const totalPages = Math.ceil(totalPairs / PAGE_SIZE);
+
+  const currentPairs = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return images.slice(start, start + PAGE_SIZE);
-  }, [images, currentPage]);
+    return pairedImages.slice(start, start + PAGE_SIZE);
+  }, [pairedImages, currentPage]);
 
   const dateSummary = useMemo(() => {
-    if (!latestImage) return null;
-    return formatDateLabel(new Date(latestImage.createdAt));
-  }, [latestImage]);
+    if (!latestPair) return null;
+    return formatDateLabel(new Date(latestPair.createdAt));
+  }, [latestPair]);
 
   const closeModal = () => setActiveIndex(null);
 
@@ -58,14 +97,14 @@ export default function GalleryClient({ images }: GalleryClientProps) {
   const showPrevious = () => {
     setActiveIndex((current) => {
       if (current === null) return current;
-      return current === 0 ? images.length - 1 : current - 1;
+      return current === 0 ? pairedImages.length - 1 : current - 1;
     });
   };
 
   const showNext = () => {
     setActiveIndex((current) => {
       if (current === null) return current;
-      return current === images.length - 1 ? 0 : current + 1;
+      return current === pairedImages.length - 1 ? 0 : current + 1;
     });
   };
 
@@ -106,9 +145,9 @@ export default function GalleryClient({ images }: GalleryClientProps) {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeIndex, images.length]);
+  }, [activeIndex, pairedImages.length]);
 
-  if (images.length === 0) {
+  if (pairedImages.length === 0) {
     return (
       <div className="max-w-[1600px] mx-auto p-4 h-full">
         <div className="h-[60vh] flex flex-col items-center justify-center bg-white rounded-2xl border border-gray-100 text-center">
@@ -136,14 +175,14 @@ export default function GalleryClient({ images }: GalleryClientProps) {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-100 pb-8 px-2">
             <div className="space-y-1">
               <h2 className="text-4xl font-black text-gray-900 tracking-tighter uppercase">Gallery</h2>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Image Archive & Management</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Before & After Archive</p>
             </div>
             
             <div className="flex flex-col items-end gap-3">
               <div className="flex items-center gap-6">
                 <div className="text-right">
-                  <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Images</span>
-                  <span className="text-sm font-black text-gray-900">{totalImages}</span>
+                  <span className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Renders</span>
+                  <span className="text-sm font-black text-gray-900">{totalPairs}</span>
                 </div>
                 <div className="w-px h-6 bg-gray-200"></div>
                 <div className="text-right">
@@ -155,17 +194,18 @@ export default function GalleryClient({ images }: GalleryClientProps) {
           </div>
 
           <div className="px-2">
-            <div className="rounded-xl border border-gray-100 bg-gray-50 px-5 py-4 text-[10px] font-black tracking-widest uppercase text-gray-500 mb-8">
-              <span className="text-gray-900">Notice:</span> Processed images are stored for the current day only. For long-term storage, please contact us through the feedback page.
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-5 py-4 text-[10px] font-black tracking-widest uppercase text-gray-500 mb-8 flex items-center gap-3">
+              <ArrowsRightLeftIcon className="w-4 h-4 text-gray-900" />
+              <span><span className="text-gray-900">Hover</span> over grid images to reveal the original before image. Click to view side-by-side comparison. Processed images are stored for the current day only.</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
-              {currentImages.map((image, index) => {
+              {currentPairs.map((pair, index) => {
                 const globalIndex = (currentPage - 1) * PAGE_SIZE + index;
                 return (
-                  <div key={image.id} className="group space-y-4">
+                  <div key={pair.id} className="group space-y-4">
                     <div 
-                      className="relative aspect-square rounded-xl overflow-hidden bg-white border border-gray-100 cursor-zoom-in"
+                      className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 cursor-zoom-in group/pair shadow-sm hover:shadow-md transition-all"
                       onClick={() => openModal(globalIndex)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -177,12 +217,32 @@ export default function GalleryClient({ images }: GalleryClientProps) {
                       tabIndex={0}
                       aria-label={`Open image ${globalIndex + 1}`}
                     >
+                      {/* After Image (Always on top, fades out on hover if original exists) */}
                       <img
-                        src={image.url}
-                        alt={image.name || `Generated image ${globalIndex + 1}`}
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        src={pair.processed.url}
+                        alt={pair.processed.name || `Generated image ${globalIndex + 1}`}
+                        className={clsx(
+                          "absolute inset-0 w-full h-full object-cover transition-opacity duration-500 z-10",
+                          pair.original ? "opacity-100 group-hover/pair:opacity-0" : ""
+                        )}
                       />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                      
+                      {/* Before Image (Hidden underneath, revealed on hover) */}
+                      {pair.original && (
+                        <img
+                          src={pair.original.url}
+                          alt="Original room"
+                          className="absolute inset-0 w-full h-full object-cover z-0"
+                        />
+                      )}
+
+                      <div className="absolute top-3 left-3 z-20 pointer-events-none transition-opacity duration-300">
+                        <span className="bg-black/50 backdrop-blur-md text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-md border border-white/10 shadow-sm">
+                          {pair.original ? "Hover for Before" : "Generated"}
+                        </span>
+                      </div>
+                      
+                      <div className="absolute inset-0 bg-black/0 group-hover/pair:bg-black/5 transition-colors duration-300 z-30 pointer-events-none" />
                     </div>
 
                     <div className="flex items-center justify-between px-2">
@@ -191,11 +251,11 @@ export default function GalleryClient({ images }: GalleryClientProps) {
                           Render {String(globalIndex + 1).padStart(2, '0')}
                         </p>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                          {formatDateLabel(new Date(image.createdAt))}
+                          {formatDateLabel(new Date(pair.createdAt))}
                         </p>
                       </div>
                       <button
-                        onClick={() => downloadImage(image.url, `${image.name || `render-${image.id}`}.jpg`)}
+                        onClick={() => downloadImage(pair.processed.url, `${pair.processed.name || `render-${pair.id}`}.jpg`)}
                         className="bg-gray-100 text-gray-600 hover:text-gray-900 p-2.5 rounded-xl transition-all hover:bg-gray-200 active:scale-90"
                         title="Download"
                         aria-label={`Download image ${globalIndex + 1}`}
@@ -239,32 +299,32 @@ export default function GalleryClient({ images }: GalleryClientProps) {
       </div>
 
       {/* Lightbox Modal */}
-      {activeImage && (
+      {activePair && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4 md:p-8 cursor-zoom-out backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label="Image preview"
           onClick={closeModal}
         >
-          <div className="relative w-full max-w-[95vw] max-h-[95vh] flex flex-col items-center justify-center pointer-events-none">
+          <div className="relative w-full max-w-[1400px] h-full flex flex-col pointer-events-none">
             
             {/* Top Bar */}
-            <div className="absolute top-0 w-full flex justify-between items-center p-4 pointer-events-auto z-10">
-              <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white flex items-center gap-3">
+            <div className="flex-none flex justify-between items-center py-4 pointer-events-auto z-10">
+              <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white flex items-center gap-3">
                 <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Preview</span>
-                <span className="text-sm font-black">{activeIndex! + 1} / {totalImages}</span>
+                <span className="text-sm font-black">{activeIndex! + 1} / {totalPairs}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => downloadImage(activeImage.url, `${activeImage.name || `render-${activeImage.id}`}.jpg`)}
-                  className="bg-black/50 hover:bg-white/10 backdrop-blur-md p-3 rounded-full border border-white/10 text-white transition-all pointer-events-auto"
+                  onClick={() => downloadImage(activePair.processed.url, `${activePair.processed.name || `render-${activePair.id}`}.jpg`)}
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-full border border-white/10 text-white transition-all pointer-events-auto"
                 >
                   <ArrowDownTrayIcon className="w-5 h-5" />
                 </button>
                 <button
                   onClick={closeModal}
-                  className="bg-black/50 hover:bg-red-500 backdrop-blur-md p-3 rounded-full border border-white/10 text-white transition-all pointer-events-auto"
+                  className="bg-white/10 hover:bg-red-500/80 backdrop-blur-md p-3 rounded-full border border-white/10 text-white transition-all pointer-events-auto"
                 >
                   <XMarkIcon className="w-5 h-5" />
                 </button>
@@ -272,42 +332,90 @@ export default function GalleryClient({ images }: GalleryClientProps) {
             </div>
 
             {/* Navigation Buttons */}
-            {totalImages > 1 && (
+            {totalPairs > 1 && (
               <>
                 <button
                   onClick={(e) => { e.stopPropagation(); showPrevious(); }}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-white/10 backdrop-blur-md p-4 rounded-full border border-white/10 text-white transition-all pointer-events-auto"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-6 bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/10 text-white transition-all pointer-events-auto z-20"
                 >
                   <ArrowLeftIcon className="w-6 h-6" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); showNext(); }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-white/10 backdrop-blur-md p-4 rounded-full border border-white/10 text-white transition-all pointer-events-auto"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-6 bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/10 text-white transition-all pointer-events-auto z-20"
                 >
                   <ArrowRightIcon className="w-6 h-6" />
                 </button>
               </>
             )}
 
-            {/* Image container */}
-            <img
-              src={activeImage.url}
-              alt={activeImage.name || `Generated image ${activeIndex! + 1}`}
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl pointer-events-auto shadow-2xl"
+            {/* Image container: Split view if original exists */}
+            <div 
+              className="flex-1 min-h-0 flex flex-col md:flex-row items-center justify-center gap-6 pointer-events-auto py-4"
               onClick={e => e.stopPropagation()}
-            />
+            >
+              {activePair.original && (
+                <div className="relative flex-1 h-full w-full flex items-center justify-center bg-black/40 rounded-2xl border border-white/10 overflow-hidden">
+                  <span className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-black tracking-widest px-3 py-1.5 rounded-lg z-10 border border-white/10 shadow-lg">
+                    Before
+                  </span>
+                  
+                  {/* Loading Skeleton */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/5 animate-pulse -z-10">
+                    <PhotoIcon className="w-12 h-12 text-white/20" />
+                  </div>
+                  
+                  <img
+                    key={`original-${activePair.id}`} // Force re-render for loading state
+                    src={activePair.original.url}
+                    alt="Original room"
+                    className="max-h-full max-w-full object-contain"
+                    style={{ animation: 'fadeIn 0.3s ease-in-out' }}
+                  />
+                </div>
+              )}
+              
+              <div className={clsx(
+                "relative h-full flex items-center justify-center bg-black/40 rounded-2xl border border-white/10 overflow-hidden",
+                activePair.original ? "flex-1 w-full" : "w-full max-w-full"
+              )}>
+                <span className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-black tracking-widest px-3 py-1.5 rounded-lg z-10 border border-white/10 shadow-lg">
+                  {activePair.original ? "After" : "Generated"}
+                </span>
+
+                {/* Loading Skeleton */}
+                <div className="absolute inset-0 flex items-center justify-center bg-white/5 animate-pulse -z-10">
+                  <PhotoIcon className="w-12 h-12 text-white/20" />
+                </div>
+
+                <img
+                  key={`processed-${activePair.id}`} // Force re-render for loading state
+                  src={activePair.processed.url}
+                  alt={activePair.processed.name || `Generated image ${activeIndex! + 1}`}
+                  className="max-h-full max-w-full object-contain shadow-2xl"
+                  style={{ animation: 'fadeIn 0.3s ease-in-out' }}
+                />
+              </div>
+            </div>
             
             {/* Bottom Bar */}
-            <div className="absolute bottom-0 w-full p-4 pointer-events-none flex justify-center">
-              <div className="bg-black/50 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 text-white pointer-events-auto">
+            <div className="flex-none flex justify-center py-4 pointer-events-auto">
+              <div className="bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 text-white">
                 <p className="text-[10px] font-black uppercase tracking-widest text-white/50 text-center mb-1">Generated At</p>
-                <p className="text-sm font-black">{formatDateLabel(new Date(activeImage.createdAt))}</p>
+                <p className="text-sm font-black">{formatDateLabel(new Date(activePair.createdAt))}</p>
               </div>
             </div>
             
           </div>
         </div>
       )}
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}} />
     </>
   );
 }

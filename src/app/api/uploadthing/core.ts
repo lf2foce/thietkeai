@@ -54,6 +54,7 @@ export const ourFileRouter = {
           userId: metadata.userId,
           design: metadata.design,
           type: metadata.type,
+          originalImageId: file.key,
         });
         return { uploadedBy: metadata.userId };
       } catch (error) {
