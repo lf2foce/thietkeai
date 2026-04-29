@@ -21,7 +21,6 @@ interface PredictionState {
 
 export default function Page() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const [imageUrls, setImageUrls] = useState<string[]>([]);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewUrls, setPreviewUrls] = useState<string[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -91,6 +90,29 @@ export default function Page() {
         }
     }
 
+    const replaceTempPrediction = useCallback((
+        theme: themeType | string,
+        prediction: PredictionState,
+    ) => {
+        setPredictions(prev => {
+            const next = { ...prev };
+            Object.keys(next).forEach(key => {
+                if (key.startsWith('temp_') && next[key].theme === theme) delete next[key];
+            });
+            next[prediction.id] = prediction;
+            return next;
+        });
+    }, []);
+
+    const markPredictionFailed = useCallback((
+        theme: themeType | string,
+        message: string,
+    ) => {
+        const failedId = `failed_${theme}_${Date.now()}`;
+        setError(message);
+        replaceTempPrediction(theme, { id: failedId, status: "failed", theme });
+    }, [replaceTempPrediction]);
+
     async function generatePhoto(fileUrl: string | string[], theme: themeType | string, room: roomType, origImageId: string | null) {
         try {
             const body: any = { theme, room, roomCondition };
@@ -115,43 +137,18 @@ export default function Page() {
                 if (data.originalImageId) {
                     setOriginalImageId(data.originalImageId);
                 }
-                setPredictions(prev => {
-                    const next = { ...prev };
-                    Object.keys(next).forEach(key => {
-                        if (key.startsWith('temp_') && next[key].theme === theme) delete next[key];
-                    });
-                    next[data.id] = { id: data.id, status: "succeeded", theme, resultUrl: data.restoredImage };
-                    return next;
-                });
+                replaceTempPrediction(theme, { id: data.id, status: "succeeded", theme, resultUrl: data.restoredImage });
                 if (data.originalImageId) {
                     runTest(data.restoredImage, data.originalImageId);
                 } else if (origImageId) {
                     runTest(data.restoredImage, origImageId);
                 }
             } else {
-                const failedId = `failed_${theme}_${Date.now()}`;
-                setError(data.error || `Failed to generate for ${theme}`);
-                setPredictions(prev => {
-                    const next = { ...prev };
-                    Object.keys(next).forEach(key => {
-                        if (key.startsWith('temp_') && next[key].theme === theme) delete next[key];
-                    });
-                    next[failedId] = { id: failedId, status: "failed", theme };
-                    return next;
-                });
+                markPredictionFailed(theme, data.error || `Failed to generate for ${theme}`);
             }
         } catch (err) {
             console.error(err);
-            const failedId = `failed_${theme}_${Date.now()}`;
-            setError(`Error generating photo for ${theme}`);
-            setPredictions(prev => {
-                const next = { ...prev };
-                Object.keys(next).forEach(key => {
-                    if (key.startsWith('temp_') && next[key].theme === theme) delete next[key];
-                });
-                next[failedId] = { id: failedId, status: "failed", theme };
-                return next;
-            });
+            markPredictionFailed(theme, `Error generating photo for ${theme}`);
         }
     }
 
@@ -186,41 +183,16 @@ export default function Page() {
                     runTest(data.restoredImage, data.originalImageId);
                 }
 
-                setPredictions(prev => {
-                    const next = { ...prev };
-                    Object.keys(next).forEach(key => {
-                        if (key.startsWith('temp_') && next[key].theme === theme) delete next[key];
-                    });
-                    next[data.id] = { id: data.id, status: "succeeded", theme, resultUrl: data.restoredImage };
-                    return next;
-                });
+                replaceTempPrediction(theme, { id: data.id, status: "succeeded", theme, resultUrl: data.restoredImage });
             } else {
-                const failedId = `failed_${theme}_${Date.now()}`;
-                setError(data.error || "Failed to generate style reference image");
-                setPredictions(prev => {
-                    const next = { ...prev };
-                    Object.keys(next).forEach(key => {
-                        if (key.startsWith('temp_') && next[key].theme === theme) delete next[key];
-                    });
-                    next[failedId] = { id: failedId, status: "failed", theme };
-                    return next;
-                });
+                markPredictionFailed(theme, data.error || "Failed to generate style reference image");
             }
         } catch (err) {
             console.error(err);
             setIsUploading(false);
-            const failedId = `failed_${theme}_${Date.now()}`;
-            setError("Error generating style reference image");
-            setPredictions(prev => {
-                const next = { ...prev };
-                Object.keys(next).forEach(key => {
-                    if (key.startsWith('temp_') && next[key].theme === theme) delete next[key];
-                });
-                next[failedId] = { id: failedId, status: "failed", theme };
-                return next;
-            });
+            markPredictionFailed(theme, "Error generating style reference image");
         }
-    }, [customPrompt, room, roomCondition, selectedFiles]);
+    }, [customPrompt, room, roomCondition, selectedFiles, replaceTempPrediction, markPredictionFailed]);
 
     const { startUpload } = useUploadThing("imageUploader", {
         onUploadBegin: () => setIsUploading(true),
@@ -232,12 +204,8 @@ export default function Page() {
                 const firstId = res[0].key;
                 
                 setImageUrl(firstUrl);
-                setImageUrls(urls);
                 setOriginalImageId(firstId);
-                
-                const finalUrl = renderMode === 'style-ref' ? urls : firstUrl;
-                const themesToRender = renderMode === 'style-ref' ? ["Custom Style"] : selectedThemes;
-                themesToRender.forEach(theme => generatePhoto(finalUrl, theme as themeType, room, firstId));
+                selectedThemes.forEach(theme => generatePhoto(firstUrl, theme, room, firstId));
             }
         },
         onUploadError: () => {
@@ -271,7 +239,6 @@ export default function Page() {
         }
         
         setImageUrl(null);
-        setImageUrls([]);
         setOriginalImageId(null);
         setPredictions({});
         setError(null);
@@ -295,13 +262,12 @@ export default function Page() {
             return newUrls;
         });
         setImageUrl(null);
-        setImageUrls([]);
         setOriginalImageId(null);
         setPredictions({});
         setError(null);
     }, []);
 
-    const hasSelection = renderMode === 'style-ref' ? (selectedFiles.length > 0 || imageUrls.length > 0) : (!!selectedFile || !!imageUrl);
+    const hasSelection = renderMode === 'style-ref' ? selectedFiles.length > 0 : (!!selectedFile || !!imageUrl);
 
     const handleUpload = useCallback(async () => {
         if (!hasSelection) {
@@ -325,9 +291,7 @@ export default function Page() {
         setPredictions(initialPredictions);
 
         if (renderMode === 'style-ref') {
-            if (imageUrls.length > 0) {
-                themesToRender.forEach(theme => generatePhoto(imageUrls, theme as themeType, room, originalImageId));
-            } else if (selectedFiles.length > 0) {
+            if (selectedFiles.length > 0) {
                 await generateStyleRefDirect();
             }
         } else {
@@ -337,11 +301,10 @@ export default function Page() {
                 await startUpload([selectedFile], { design: 'interior', type: 'original' });
             }
         }
-    }, [selectedFile, selectedFiles, imageUrl, imageUrls, selectedThemes, startUpload, room, originalImageId, renderMode, generateStyleRefDirect]);
+    }, [selectedFile, selectedFiles, imageUrl, selectedThemes, startUpload, room, originalImageId, renderMode, generateStyleRefDirect]);
 
     const clearImage = () => {
         setImageUrl(null);
-        setImageUrls([]);
         setSelectedFile(null);
         setSelectedFiles([]);
         setOriginalImageId(null);
