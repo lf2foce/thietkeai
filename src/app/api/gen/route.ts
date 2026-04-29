@@ -1,9 +1,15 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { NextRequest } from 'next/server';
 import { getProvider } from "@/lib/ai-providers";
+import { UTApi, UTFile } from "uploadthing/server";
+import { auth } from "@clerk/nextjs/server";
+import { db } from "@/app/server/db";
+import { images } from "@/app/server/db/schema";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
+
+const utapi = new UTApi();
 
 const styleDescriptions: Record<string, Record<string, string>> = {
   Bedroom: {
@@ -138,15 +144,99 @@ function buildPrompt(room: string, theme: string, roomCondition: "raw" | "finish
   }
 }
 
-export async function POST(request: NextRequest) {
-  const { imageUrl, imageUrls: multipleUrls, theme, room, roomCondition, customPrompt } = await request.json();
-  const condition: "raw" | "finished" = roomCondition === "finished" ? "finished" : "raw";
-  let prompt = buildPrompt(room, theme, condition);
-  
-  if (customPrompt) {
-      prompt += `\n\nUSER SPECIFIC INSTRUCTIONS: ${customPrompt}`;
+function appendCustomPrompt(prompt: string, customPrompt?: string | null) {
+  if (customPrompt && customPrompt.trim() !== "") {
+    return `${prompt}\n\nUSER SPECIFIC INSTRUCTIONS: ${customPrompt.trim()}`;
   }
 
+  return prompt;
+}
+
+async function persistOriginalRoomImage(
+  file: File,
+  originalImageId: string,
+  userId?: string | null,
+) {
+  if (!userId) {
+    return;
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const fileName = `${originalImageId}-${file.name || "style-ref-room.jpg"}`;
+  const uploadFile = new UTFile([buffer], fileName, {
+    type: file.type || "image/jpeg",
+    customId: originalImageId,
+  });
+
+  const response = await utapi.uploadFiles([uploadFile]);
+  const uploadedImage = response[0];
+
+  if (!uploadedImage?.data?.ufsUrl) {
+    console.error("Background original upload failed:", uploadedImage?.error);
+    return;
+  }
+
+  await db.insert(images).values({
+    name: fileName,
+    url: uploadedImage.data.ufsUrl,
+    userId,
+    design: "interior",
+    type: "original",
+    originalImageId,
+  });
+}
+
+export async function POST(request: NextRequest) {
+  const contentType = request.headers.get("content-type") || "";
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const theme = String(formData.get("theme") || "Custom Style");
+    const room = String(formData.get("room") || "Living Room");
+    const roomCondition = String(formData.get("roomCondition") || "raw");
+    const customPrompt = String(formData.get("customPrompt") || "");
+    const files = formData
+      .getAll("images")
+      .filter((value): value is File => value instanceof File && value.size > 0);
+
+    if (files.length === 0) {
+      return NextResponse.json({ error: "No image files were provided" }, { status: 400 });
+    }
+
+    const condition: "raw" | "finished" = roomCondition === "finished" ? "finished" : "raw";
+    const prompt = appendCustomPrompt(buildPrompt(room, theme, condition), customPrompt);
+    const provider = getProvider();
+    const { userId } = await auth();
+    const originalImageId = `style_ref_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    try {
+      const result = await provider.generate(files, prompt, room);
+
+      if (files[0] && userId) {
+        after(async () => {
+          try {
+            await persistOriginalRoomImage(files[0], originalImageId, userId);
+          } catch (error) {
+            console.error("Failed to persist original style-ref room image:", error);
+          }
+        });
+      }
+
+      return NextResponse.json({
+        id: result.id,
+        status: "succeeded",
+        restoredImage: result.restoredImage,
+        originalImageId,
+      });
+    } catch (error: any) {
+      console.error("Error in multipart POST request:", error);
+      return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    }
+  }
+
+  const { imageUrl, imageUrls: multipleUrls, theme, room, roomCondition, customPrompt } = await request.json();
+  const condition: "raw" | "finished" = roomCondition === "finished" ? "finished" : "raw";
+  const prompt = appendCustomPrompt(buildPrompt(room, theme, condition), customPrompt);
   const imagesToProcess = multipleUrls || imageUrl;
 
   try {
