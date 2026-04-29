@@ -1,5 +1,4 @@
 'use client'
-import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
@@ -7,76 +6,15 @@ import { ArrowUpRight, Sparkles } from 'lucide-react';
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import AcmeLogo from '@/app/ui/acme-logo';
 import { aiTools } from "@/lib/data/tools";
 
-interface AITool {
-  id: string;
-  name: string;
-  category: string;
-  url: string;
-  imageUrl: string;
-  description: string;
-}
-
-interface ToolCategory {
-  id: string;
-  name: string;
-  tools: AITool[];
-}
-
 const isWebview = (userAgent: string): boolean => {
   const webviewRegex = /(FBAN|FBAV|Instagram|WebView|wv)/i;
   return webviewRegex.test(userAgent);
 };
-
-const categoryColors = {
-  "Automation": "from-blue-500 to-cyan-400",
-  "Chatbot": "from-purple-500 to-pink-400",
-  "Code": "from-orange-500 to-red-400",
-};
-
-const AIToolCard: React.FC<{ tool: AITool }> = ({ tool }) => (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Card className="group hover:scale-105 transition-all duration-300 border-0 bg-white/50 backdrop-blur-sm hover:shadow-lg hover:shadow-blue-100">
-          <CardContent className="p-0">
-            <Link
-              href={tool.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between p-4 rounded-lg"
-            >
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                  <Image
-                    src={tool.imageUrl}
-                    alt={`${tool.name} icon`}
-                    width={28}
-                    height={28}
-                    className="rounded-full relative"
-                  />
-                </div>
-                <span className="text-sm font-medium group-hover:text-blue-600 transition-colors">
-                  {tool.name}
-                </span>
-              </div>
-              <ArrowUpRight className="h-4 w-4 text-gray-400 group-hover:text-blue-500 transform group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" />
-            </Link>
-          </CardContent>
-        </Card>
-      </TooltipTrigger>
-      <TooltipContent className="bg-gray-900 text-white">
-        <p className="text-sm">{tool.description}</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-);
 
 const AIToolsSection: React.FC = () => (
   <TooltipProvider>
@@ -146,10 +84,9 @@ const AIToolsSection: React.FC = () => (
 );
 
 export default function LandingPage() {
-  const router = useRouter();
   const { toast } = useToast();
 
-  const handleClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (typeof window !== 'undefined' && isWebview(navigator.userAgent)) {
       e.preventDefault();
       toast({
@@ -157,18 +94,6 @@ export default function LandingPage() {
         description: "Open this link in Safari or Chrome to proceed.",
         duration: 10000,
       });
-    } else {
-      try {
-        await router.push('/dashboard/interior');
-      } catch (error) {
-        console.error('Failed to navigate:', error);
-        toast({
-          title: "Error",
-          description: "Something went wrong. Please try again.",
-          variant: "destructive",
-          duration: 5000,
-        });
-      }
     }
   };
 
@@ -194,14 +119,14 @@ export default function LandingPage() {
       <p className="text-xl text-gray-600 leading-relaxed">
         Tạo mẫu thiết kế nội thất cực nhanh, giúp bạn hoàn thiện ý tưởng lựa chọn phong cách và nội thất chỉ trong 10s
       </p>
-      <Link
+      <a
         onClick={handleClick}
         href="/dashboard/interior"
         className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:opacity-90 transition-all hover:scale-105"
       >
         Sáng tạo ngay
         <ArrowRightIcon className="w-5 h-5" />
-      </Link>
+      </a>
     </div>
     <div className="w-full md:w-3/5 relative">
       <div className="relative aspect-square w-full rounded-2xl overflow-hidden shadow-2xl ring-1 ring-gray-200 bg-white">

@@ -8,7 +8,7 @@
     "start": "next start",
     "seed": "node -r dotenv/config ./scripts/seed.js",
     "db:push": "npx drizzle-kit push",
-    "db:migrate": "npx drizzle-kit migrate",
+    "db:migrate": "npx tsx scripts/migrate.ts",
     "db:studio": "npx drizzle-kit studio"
   },
   "dependencies": {

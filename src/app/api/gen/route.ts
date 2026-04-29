@@ -5,6 +5,7 @@ import { UTApi, UTFile } from "uploadthing/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/app/server/db";
 import { images } from "@/app/server/db/schema";
+import { getOrCreateUser, consumeQuota, refundQuota, logGeneration } from "@/app/server/db/credits";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -187,6 +188,20 @@ async function persistOriginalRoomImage(
 }
 
 export async function POST(request: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  await getOrCreateUser(userId);
+  const quota = await consumeQuota(userId);
+  if (!quota.ok) {
+    return NextResponse.json(
+      { error: quota.message, reason: quota.reason },
+      { status: 429 }
+    );
+  }
+
   const contentType = request.headers.get("content-type") || "";
 
   if (contentType.includes("multipart/form-data")) {
@@ -200,27 +215,28 @@ export async function POST(request: NextRequest) {
       .filter((value): value is File => value instanceof File && value.size > 0);
 
     if (files.length === 0) {
+      await refundQuota(userId, quota.costType);
       return NextResponse.json({ error: "No image files were provided" }, { status: 400 });
     }
 
     const condition: "raw" | "finished" = roomCondition === "finished" ? "finished" : "raw";
     const prompt = appendCustomPrompt(buildPrompt(room, theme, condition), customPrompt);
     const provider = getProvider();
-    const { userId } = await auth();
     const originalImageId = `style_ref_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     try {
       const result = await provider.generate(files, prompt, room);
 
-      if (files[0] && userId) {
-        after(async () => {
+      after(async () => {
+        await logGeneration({ userId, mode: "style-ref", status: "succeeded", costType: quota.costType, roomType: room, theme });
+        if (files[0]) {
           try {
             await persistOriginalRoomImage(files[0], originalImageId, userId);
           } catch (error) {
             console.error("Failed to persist original style-ref room image:", error);
           }
-        });
-      }
+        }
+      });
 
       return NextResponse.json({
         id: result.id,
@@ -230,6 +246,8 @@ export async function POST(request: NextRequest) {
       });
     } catch (error: any) {
       console.error("Error in multipart POST request:", error);
+      await refundQuota(userId, quota.costType);
+      after(() => logGeneration({ userId, mode: "style-ref", status: "failed", costType: quota.costType, roomType: room, theme }));
       return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
     }
   }
@@ -242,12 +260,17 @@ export async function POST(request: NextRequest) {
   try {
     const provider = getProvider();
     const result = await provider.generate(imagesToProcess, prompt, room);
+
+    after(() => logGeneration({ userId, mode: "standard", status: "succeeded", costType: quota.costType, roomType: room, theme }));
+
     if (result.restoredImage) {
       return NextResponse.json({ id: result.id, status: "succeeded", restoredImage: result.restoredImage });
     }
     return NextResponse.json({ id: result.id });
   } catch (error: any) {
     console.error("Error in POST request:", error);
+    await refundQuota(userId, quota.costType);
+    after(() => logGeneration({ userId, mode: "standard", status: "failed", costType: quota.costType, roomType: room, theme }));
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
