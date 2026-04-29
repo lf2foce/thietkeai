@@ -29,7 +29,7 @@ export default function Page() {
     const [originalImageId, setOriginalImageId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [room, setRoom] = useState<roomType>("Living Room");
-    const [quality, setQuality] = useState<qualityType>("Pro - 2 credits");
+    const [quality, setQuality] = useState<qualityType>("Standard - 1 credit");
     const [selectedThemes, setSelectedThemes] = useState<themeType[]>(["Modern"]);
     const [roomCondition, setRoomCondition] = useState<"raw" | "finished">("raw");
     const [renderMode, setRenderMode] = useState<"standard" | "style-ref">("standard");
@@ -38,6 +38,11 @@ export default function Page() {
     const [modalImage, setModalImage] = useState<string | null>(null);
     const [customPrompt, setCustomPrompt] = useState("");
     const [isPending, startTransition] = useTransition();
+    const [quota, setQuota] = useState<{ unlimited: boolean; remaining: number | null; limit: number | null; plan: string } | null>(null);
+
+    useEffect(() => {
+        fetch("/api/quota").then(r => r.json()).then(setQuota).catch(() => {});
+    }, []);
 
     // Derived: true while any prediction is still queued
     const isGenerating = Object.values(predictions).some(p => p.status === "queued");
@@ -90,6 +95,10 @@ export default function Page() {
         }
     }
 
+    const refreshQuota = useCallback(() => {
+        fetch("/api/quota").then(r => r.json()).then(setQuota).catch(() => {});
+    }, []);
+
     const replaceTempPrediction = useCallback((
         theme: themeType | string,
         prediction: PredictionState,
@@ -115,7 +124,7 @@ export default function Page() {
 
     async function generatePhoto(fileUrl: string | string[], theme: themeType | string, room: roomType, origImageId: string | null) {
         try {
-            const body: any = { theme, room, roomCondition };
+            const body: any = { theme, room, roomCondition, quality };
             if (Array.isArray(fileUrl)) {
                 body.imageUrls = fileUrl;
             } else {
@@ -135,11 +144,17 @@ export default function Page() {
                     setOriginalImageId(data.originalImageId);
                 }
                 replaceTempPrediction(theme, { id: data.id, status: "succeeded", theme, resultUrl: data.restoredImage });
+                refreshQuota();
                 if (data.originalImageId) {
                     runTest(data.restoredImage, data.originalImageId);
                 } else if (origImageId) {
                     runTest(data.restoredImage, origImageId);
                 }
+            } else if (res.status === 429) {
+                refreshQuota();
+                markPredictionFailed(theme, "Hết lượt hôm nay. Quay lại vào ngày mai nhé!");
+            } else if (res.status === 401) {
+                markPredictionFailed(theme, "Vui lòng đăng nhập để tiếp tục.");
             } else {
                 markPredictionFailed(theme, data.error || `Failed to generate for ${theme}`);
             }
@@ -159,6 +174,7 @@ export default function Page() {
         formData.append("theme", theme);
         formData.append("room", room);
         formData.append("roomCondition", roomCondition);
+        formData.append("quality", quality);
 
         if (customPrompt.trim() !== '') {
             formData.append("customPrompt", customPrompt.trim());
@@ -179,8 +195,13 @@ export default function Page() {
                     setOriginalImageId(data.originalImageId);
                     runTest(data.restoredImage, data.originalImageId);
                 }
-
                 replaceTempPrediction(theme, { id: data.id, status: "succeeded", theme, resultUrl: data.restoredImage });
+                refreshQuota();
+            } else if (res.status === 429) {
+                refreshQuota();
+                markPredictionFailed(theme, "Hết lượt hôm nay. Quay lại vào ngày mai nhé!");
+            } else if (res.status === 401) {
+                markPredictionFailed(theme, "Vui lòng đăng nhập để tiếp tục.");
             } else {
                 markPredictionFailed(theme, data.error || "Failed to generate style reference image");
             }
@@ -600,20 +621,28 @@ export default function Page() {
 
                         <button
                             onClick={handleUpload}
-                            disabled={isUploading || isGenerating || !hasSelection}
+                            disabled={isUploading || isGenerating || !hasSelection || (() => {
+                                if (quota?.unlimited) return false;
+                                const remaining = quota?.remaining ?? 1;
+                                const costPerRender = quality === "Pro - 2 credits" ? 2 : 1;
+                                const totalCost = costPerRender * (renderMode === 'style-ref' ? 1 : selectedThemes.length);
+                                return remaining < totalCost;
+                            })()}
                             className="w-full py-5 bg-gray-900 text-white text-base font-black rounded-xl hover:bg-black transition-all transform active:scale-[0.98] disabled:opacity-20 flex items-center justify-center gap-3"
                         >
                             {isUploading || isGenerating ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (quota?.remaining === 0) ? (
+                                <span className="uppercase tracking-[0.2em] text-xs">Hết lượt hôm nay</span>
                             ) : (
                                 <span className="uppercase tracking-[0.2em] text-xs">Start Rendering</span>
                             )}
                         </button>
 
                         <div className="flex items-center justify-between px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            <span>Credits Required</span>
-                            <span className="text-gray-900 font-black">
-                                {renderMode === 'style-ref' ? (quality === "Pro - 2 credits" ? 2 : 1) : (selectedThemes.length * (quality === "Pro - 2 credits" ? 2 : 1))} Units
+                            <span>Lượt còn lại</span>
+                            <span className={quota?.remaining === 0 ? "text-red-500 font-black" : "text-gray-900 font-black"}>
+                                {quota === null ? "..." : quota.unlimited ? "∞" : `${quota.remaining} / ${quota.limit}`}
                             </span>
                         </div>
                     </div>

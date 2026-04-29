@@ -3,104 +3,101 @@ import { users, generations } from "./schema";
 import { eq } from "drizzle-orm";
 import { currentUser } from "@clerk/nextjs/server";
 
-const DAILY_FREE_LIMIT = 20;
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .split(",")
   .map((e) => e.trim())
   .filter(Boolean);
 
-export type ConsumeResult =
-  | { ok: true; costType: "free" | "credit" | "admin"; remainingFree: number; remainingCredits: number }
-  | { ok: false; reason: "daily_limit" | "no_credits"; message: string };
+const QUOTA_LIMITS = {
+  free: 20,      // per day
+  premium: 1000, // per month
+} as const;
 
-function isSameUTCDay(a: Date, b: Date) {
-  return (
-    a.getUTCFullYear() === b.getUTCFullYear() &&
-    a.getUTCMonth() === b.getUTCMonth() &&
-    a.getUTCDate() === b.getUTCDate()
-  );
+export type ConsumeResult =
+  | { ok: true; costType: "quota" | "admin"; remaining: number }
+  | { ok: false; reason: "no_quota"; message: string };
+
+function getPeriodStart(plan: "free" | "premium"): Date {
+  const now = new Date();
+  if (plan === "free") {
+    // Start of today (UTC)
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  }
+  // Start of current month (UTC)
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
-export async function getOrCreateUser(userId: string) {
+function isExpired(quotaResetAt: Date, plan: "free" | "premium"): boolean {
+  return quotaResetAt < getPeriodStart(plan);
+}
+
+export async function getOrCreateUser(userId: string, emailHint?: string | null) {
   const existing = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (existing) return existing;
 
-  const clerkUser = await currentUser();
-  const email = clerkUser?.emailAddresses[0]?.emailAddress ?? null;
+  const email = emailHint ?? (await currentUser())?.emailAddresses[0]?.emailAddress ?? null;
   const role = email && ADMIN_EMAILS.includes(email) ? "admin" : "user";
 
   const [created] = await db
     .insert(users)
     .values({ id: userId, email, role })
+    .onConflictDoNothing()
     .returning();
-  return created!;
+
+  // If another concurrent request already inserted, fetch the existing row
+  if (!created) {
+    return (await db.query.users.findFirst({ where: eq(users.id, userId) }))!;
+  }
+  return created;
 }
 
-export async function consumeQuota(userId: string): Promise<ConsumeResult> {
+export async function consumeQuota(userId: string, cost = 1): Promise<ConsumeResult> {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  if (!user) return { ok: false, reason: "no_credits", message: "User not found" };
+  if (!user) return { ok: false, reason: "no_quota", message: "User not found" };
 
   if (user.role === "admin") {
-    return { ok: true, costType: "admin", remainingFree: DAILY_FREE_LIMIT, remainingCredits: user.credits };
+    return { ok: true, costType: "admin", remaining: Infinity };
   }
 
+  const limit = QUOTA_LIMITS[user.plan];
   const now = new Date();
-  const dailyUsed = isSameUTCDay(user.dailyResetAt, now) ? user.dailyUsedCount : 0;
+  const periodExpired = isExpired(user.quotaResetAt, user.plan);
+  const currentUsed = periodExpired ? 0 : user.quotaUsed;
 
-  if (dailyUsed < DAILY_FREE_LIMIT) {
-    await db.update(users).set({
-      dailyUsedCount: dailyUsed + 1,
-      dailyResetAt: now,
-      updatedAt: now,
-    }).where(eq(users.id, userId));
-
+  if (currentUsed + cost > limit) {
+    const period = user.plan === "free" ? "day" : "month";
     return {
-      ok: true,
-      costType: "free",
-      remainingFree: DAILY_FREE_LIMIT - dailyUsed - 1,
-      remainingCredits: user.credits,
+      ok: false,
+      reason: "no_quota",
+      message: `Không đủ lượt (cần ${cost}, còn ${limit - currentUsed}/${limit} ${period})`,
     };
   }
 
-  if (user.credits > 0) {
-    await db.update(users).set({
-      credits: user.credits - 1,
-      updatedAt: now,
-    }).where(eq(users.id, userId));
+  await db.update(users).set({
+    quotaUsed: currentUsed + cost,
+    quotaResetAt: periodExpired ? getPeriodStart(user.plan) : user.quotaResetAt,
+    updatedAt: now,
+  }).where(eq(users.id, userId));
 
-    return { ok: true, costType: "credit", remainingFree: 0, remainingCredits: user.credits - 1 };
-  }
-
-  return {
-    ok: false,
-    reason: "daily_limit",
-    message: "Daily limit of 20 requests reached and no credits remaining",
-  };
+  return { ok: true, costType: "quota", remaining: limit - currentUsed - cost };
 }
 
-export async function refundQuota(userId: string, costType: "free" | "credit" | "admin") {
+export async function refundQuota(userId: string, costType: "quota" | "admin", cost = 1) {
   if (costType === "admin") return;
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) return;
 
-  if (costType === "free") {
-    await db.update(users).set({
-      dailyUsedCount: Math.max(0, user.dailyUsedCount - 1),
-      updatedAt: new Date(),
-    }).where(eq(users.id, userId));
-  } else {
-    await db.update(users).set({
-      credits: user.credits + 1,
-      updatedAt: new Date(),
-    }).where(eq(users.id, userId));
-  }
+  await db.update(users).set({
+    quotaUsed: Math.max(0, user.quotaUsed - cost),
+    updatedAt: new Date(),
+  }).where(eq(users.id, userId));
 }
 
 export async function logGeneration(args: {
   userId: string;
   mode: "standard" | "style-ref";
   status: "succeeded" | "failed";
-  costType: "free" | "credit" | "admin";
+  costType: "quota" | "admin";
   roomType?: string;
   theme?: string;
 }) {

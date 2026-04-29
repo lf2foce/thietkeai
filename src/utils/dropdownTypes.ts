@@ -19,7 +19,7 @@ export type roomType =
   | "Office"
   | "Gaming Room";
 
-export type qualityType = "Free" | "Pro - 2 credits";
+export type qualityType = "Standard - 1 credit" | "Pro - 2 credits";
 
 export const themes: { name: themeType; image: string }[] = [
   { name: "Modern", image: "/theme-images/modern.png" },
@@ -42,4 +42,4 @@ export const rooms: roomType[] = [
   "Gaming Room",
 ];
 
-export const qualities: qualityType[] = ["Free", "Pro - 2 credits"];
+export const qualities: qualityType[] = ["Standard - 1 credit", "Pro - 2 credits"];

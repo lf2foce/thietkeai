@@ -2,11 +2,7 @@ import { NextResponse } from 'next/server';
 import { UTApi, UTFile } from "uploadthing/server";
 import { db } from "@/app/server/db";
 import { images } from "@/app/server/db/schema";
-
 import { auth } from "@clerk/nextjs/server";
-
-
-const utapi = new UTApi();
 
 export async function POST(req: Request) {
   try {
@@ -32,11 +28,11 @@ export async function POST(req: Request) {
         customId: uniqueCustomId 
       });
       
-      const response = await utapi.uploadFiles([file]);
+      const response = await new UTApi().uploadFiles([file]);
       uploadedImage = response[0];
     } else {
       // Handle regular URL
-      uploadedImage = await utapi.uploadFilesFromUrl(imageUrl, {
+      uploadedImage = await new UTApi().uploadFilesFromUrl(imageUrl, {
         metadata: { originalImageId },
         contentDisposition: `inline`,
       });

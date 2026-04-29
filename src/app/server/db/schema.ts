@@ -11,17 +11,18 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
+export const userPlanEnum = pgEnum("user_plan", ["free", "premium"]);
 export const generationModeEnum = pgEnum("generation_mode", ["standard", "style-ref"]);
 export const generationStatusEnum = pgEnum("generation_status", ["succeeded", "failed"]);
-export const costTypeEnum = pgEnum("cost_type", ["free", "credit", "admin"]);
+export const costTypeEnum = pgEnum("cost_type", ["quota", "admin"]);
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 256 }).primaryKey(), // Clerk userId
   email: varchar("email", { length: 256 }),
   role: userRoleEnum("role").default("user").notNull(),
-  credits: integer("credits").default(0).notNull(),
-  dailyUsedCount: integer("daily_used_count").default(0).notNull(),
-  dailyResetAt: timestamp("daily_reset_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  plan: userPlanEnum("plan").default("free").notNull(),
+  quotaUsed: integer("quota_used").default(0).notNull(),
+  quotaResetAt: timestamp("quota_reset_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });

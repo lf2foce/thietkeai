@@ -194,13 +194,6 @@ export async function POST(request: NextRequest) {
   }
 
   await getOrCreateUser(userId);
-  const quota = await consumeQuota(userId);
-  if (!quota.ok) {
-    return NextResponse.json(
-      { error: quota.message, reason: quota.reason },
-      { status: 429 }
-    );
-  }
 
   const contentType = request.headers.get("content-type") || "";
 
@@ -210,12 +203,22 @@ export async function POST(request: NextRequest) {
     const room = String(formData.get("room") || "Living Room");
     const roomCondition = String(formData.get("roomCondition") || "raw");
     const customPrompt = String(formData.get("customPrompt") || "");
+    const quality = String(formData.get("quality") || "Standard - 1 credit");
     const files = formData
       .getAll("images")
       .filter((value): value is File => value instanceof File && value.size > 0);
 
+    const cost = quality === "Pro - 2 credits" ? 2 : 1;
+    const quota = await consumeQuota(userId, cost);
+    if (!quota.ok) {
+      return NextResponse.json(
+        { error: quota.message, reason: quota.reason },
+        { status: 429 }
+      );
+    }
+
     if (files.length === 0) {
-      await refundQuota(userId, quota.costType);
+      await refundQuota(userId, quota.costType, cost);
       return NextResponse.json({ error: "No image files were provided" }, { status: 400 });
     }
 
@@ -225,7 +228,7 @@ export async function POST(request: NextRequest) {
     const originalImageId = `style_ref_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     try {
-      const result = await provider.generate(files, prompt, room);
+      const result = await provider.generate(files, prompt, room, quality);
 
       after(async () => {
         await logGeneration({ userId, mode: "style-ref", status: "succeeded", costType: quota.costType, roomType: room, theme });
@@ -246,20 +249,29 @@ export async function POST(request: NextRequest) {
       });
     } catch (error: any) {
       console.error("Error in multipart POST request:", error);
-      await refundQuota(userId, quota.costType);
+      await refundQuota(userId, quota.costType, cost);
       after(() => logGeneration({ userId, mode: "style-ref", status: "failed", costType: quota.costType, roomType: room, theme }));
       return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
     }
   }
 
-  const { imageUrl, imageUrls: multipleUrls, theme, room, roomCondition, customPrompt } = await request.json();
+  const { imageUrl, imageUrls: multipleUrls, theme, room, roomCondition, customPrompt, quality } = await request.json();
+  const cost = quality === "Pro - 2 credits" ? 2 : 1;
+  const quota = await consumeQuota(userId, cost);
+  if (!quota.ok) {
+    return NextResponse.json(
+      { error: quota.message, reason: quota.reason },
+      { status: 429 }
+    );
+  }
+
   const condition: "raw" | "finished" = roomCondition === "finished" ? "finished" : "raw";
   const prompt = appendCustomPrompt(buildPrompt(room, theme, condition), customPrompt);
   const imagesToProcess = multipleUrls || imageUrl;
 
   try {
     const provider = getProvider();
-    const result = await provider.generate(imagesToProcess, prompt, room);
+    const result = await provider.generate(imagesToProcess, prompt, room, quality);
 
     after(() => logGeneration({ userId, mode: "standard", status: "succeeded", costType: quota.costType, roomType: room, theme }));
 
@@ -269,7 +281,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id: result.id });
   } catch (error: any) {
     console.error("Error in POST request:", error);
-    await refundQuota(userId, quota.costType);
+    await refundQuota(userId, quota.costType, cost);
     after(() => logGeneration({ userId, mode: "standard", status: "failed", costType: quota.costType, roomType: room, theme }));
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }

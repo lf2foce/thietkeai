@@ -29,21 +29,28 @@ async function migrate() {
 
   await sql`
     DO $$ BEGIN
-      CREATE TYPE cost_type AS ENUM ('free', 'credit', 'admin');
+      CREATE TYPE user_plan AS ENUM ('free', 'premium');
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$;
+  `;
+
+  await sql`
+    DO $$ BEGIN
+      CREATE TYPE cost_type AS ENUM ('quota', 'admin');
     EXCEPTION WHEN duplicate_object THEN NULL;
     END $$;
   `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS users (
-      id            VARCHAR(256) PRIMARY KEY,
-      email         VARCHAR(256),
-      role          user_role NOT NULL DEFAULT 'user',
-      credits       INTEGER NOT NULL DEFAULT 0,
-      daily_used_count  INTEGER NOT NULL DEFAULT 0,
-      daily_reset_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      id              VARCHAR(256) PRIMARY KEY,
+      email           VARCHAR(256),
+      role            user_role NOT NULL DEFAULT 'user',
+      plan            user_plan NOT NULL DEFAULT 'free',
+      quota_used      INTEGER NOT NULL DEFAULT 0,
+      quota_reset_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `;
   console.log("✓ users table");

@@ -1,7 +1,11 @@
 import { GoogleGenAI, createPartFromUri } from '@google/genai';
 
-const GEMINI_MODEL_STANDARD = process.env.GEMINI_MODEL_STANDARD || 'models/gemini-3.1-flash-image-preview';
-const GEMINI_MODEL_STYLE_REF = process.env.GEMINI_MODEL_STYLE_REF || 'models/gemini-3.1-flash-image-preview';
+const GEMINI_MODELS = {
+  standard:        process.env.GEMINI_MODEL_STANDARD         || 'models/gemini-3.1-flash-image-preview',
+  premium:         process.env.GEMINI_MODEL_PREMIUM          || 'models/gemini-3.1-flash-image-preview',
+  styleRefStandard: process.env.GEMINI_MODEL_STYLE_REF_STANDARD || 'models/gemini-3.1-flash-image-preview',
+  styleRefPremium:  process.env.GEMINI_MODEL_STYLE_REF_PREMIUM  || 'models/gemini-3.1-flash-image-preview',
+};
 
 export interface GenerationResult {
   status: "succeeded" | "failed" | "processing";
@@ -13,7 +17,8 @@ export interface AIProvider {
   generate(
     imageInput: string | Blob | Array<string | Blob>,
     prompt: string,
-    room?: string
+    room?: string,
+    quality?: string,
   ): Promise<{ id: string; restoredImage?: string }>;
   getStatus(id: string): Promise<GenerationResult>;
 }
@@ -27,7 +32,7 @@ function elapsedMs(startMs: number) {
 }
 
 export class ReplicateProvider implements AIProvider {
-  async generate(imageInput: string | Blob | Array<string | Blob>, prompt: string, room?: string): Promise<{ id: string }> {
+  async generate(imageInput: string | Blob | Array<string | Blob>, prompt: string, room?: string, _quality?: string): Promise<{ id: string }> {
     const mainImage = Array.isArray(imageInput) ? imageInput[0] : imageInput;
     if (typeof mainImage !== "string") {
       throw new Error("Replicate provider requires image URLs and does not support direct file uploads");
@@ -140,6 +145,7 @@ export class GoogleGenAIProvider implements AIProvider {
     imageInput: string | Blob,
     finalPrompt: string,
     requestId: string,
+    quality?: string,
   ): Promise<{ restoredImage: string }> {
     const fetchStartMs = nowMs();
     const { blob, mimeType, source } = await this.resolveImageInput(imageInput, requestId, 0);
@@ -164,9 +170,10 @@ export class GoogleGenAIProvider implements AIProvider {
       durationMs: elapsedMs(encodeStartMs),
     });
 
+    const model = quality === "Pro - 2 credits" ? GEMINI_MODELS.premium : GEMINI_MODELS.standard;
     const generateStartMs = nowMs();
     const response = await this.ai.models.generateContent({
-      model: GEMINI_MODEL_STANDARD,
+      model,
       contents: [{
         role: 'user',
         parts: [
@@ -204,6 +211,7 @@ export class GoogleGenAIProvider implements AIProvider {
     imageInputs: Array<string | Blob>,
     finalPrompt: string,
     requestId: string,
+    quality?: string,
   ): Promise<{ restoredImage: string }> {
     const uploadBatchStartMs = nowMs();
     const uploadedFiles = await Promise.all(
@@ -251,9 +259,10 @@ export class GoogleGenAIProvider implements AIProvider {
       throw new Error("No valid Gemini file references were created");
     }
 
+    const model = quality === "Pro - 2 credits" ? GEMINI_MODELS.styleRefPremium : GEMINI_MODELS.styleRefStandard;
     const generateStartMs = nowMs();
     const response = await this.ai.models.generateContent({
-      model: GEMINI_MODEL_STYLE_REF,
+      model,
       contents: [{
         role: 'user',
         parts: [
@@ -303,7 +312,8 @@ export class GoogleGenAIProvider implements AIProvider {
   async generate(
     imageInput: string | Blob | Array<string | Blob>,
     prompt: string,
-    room?: string
+    room?: string,
+    quality?: string,
   ): Promise<{ id: string; restoredImage?: string }> {
     const id = `google_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const imageInputs = Array.isArray(imageInput) ? imageInput : [imageInput];
@@ -322,8 +332,8 @@ export class GoogleGenAIProvider implements AIProvider {
     });
 
     const result = imageInputs.length > 1
-      ? await this.generateWithGeminiFiles(imageInputs, finalPrompt, id)
-      : await this.generateWithInlineImage(imageInputs[0], finalPrompt, id);
+      ? await this.generateWithGeminiFiles(imageInputs, finalPrompt, id, quality)
+      : await this.generateWithInlineImage(imageInputs[0], finalPrompt, id, quality);
 
     this.logTiming('generate-finished', {
       requestId: id,
