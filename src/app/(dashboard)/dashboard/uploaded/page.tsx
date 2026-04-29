@@ -1,68 +1,40 @@
-// /pages/index.js (or wherever your HomePage component is located)
+import { auth } from '@clerk/nextjs/server';
+import { db } from '@/app/server/db';
+import GalleryClient from './gallery-client';
 
-import { auth } from '@clerk/nextjs/server'
-import { db } from "@/app/server/db";
-import Link from "next/link";
+export const dynamic = 'force-dynamic';
 
-export const dynamic = "force-dynamic";
+export default async function UploadedPage() {
+  const { userId } = await auth();
 
-// Function to fetch the current user's images with type 'processed'
-async function Images() {
-    const { userId } = await auth(); // Get the current user's ID from Clerk
-
-    if (!userId) {
-        return <p>No user detected, please sign in.</p>;
-    }
-
-    // Query to fetch images for the current user where type is 'processed'
-    const images = await db.query.images.findMany({
-        where: (images, { eq, and }) =>
-            and(eq(images.userId, userId), eq(images.type, 'processed')),
-    });
-
-    if (images.length === 0) {
-        return <p>No processed images found for the current user.</p>;
-    }
-
+  if (!userId) {
     return (
-        <div className="flex flex-col p-4">
-            <p className="text-red-500 mb-4">*Chú ý: Chỉ lưu trữ dữ liệu trong ngày, 
-                hãy <Link href="/dashboard/feedback" className="text-blue-500">liên hệ</Link> với chúng tôi để lưu trữ dữ liệu lâu dài.</p>
-            
-            <div className="flex flex-wrap justify-center gap-4">
-                {images.map((image) => (
-                    <div key={image.id} className="w-48 h-48 flex items-center justify-center">
-                        <a href={`${image.url}`}>
-                            <img
-                                src={image.url}
-                                alt="image"
-                                className="object-cover w-full h-full rounded-md" // Optional: Add styling for images
-                            />
-                        </a>
-                    </div>
-                ))}
-            </div>
-        </div>
+      <main className="mx-auto max-w-5xl px-4 py-10 md:px-6">
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
+            Images
+          </p>
+          <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-900">
+            Sign in to view your gallery.
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-500">
+            Your processed renders are attached to your account, so we need you signed in before
+            showing the archive.
+          </p>
+        </section>
+      </main>
     );
-}
+  }
 
-export default async function HomePage() {
-    const { userId } = await auth(); // Fetch the current user ID on the server side
+  const images = await db.query.images.findMany({
+    where: (images, { and, eq }) =>
+      and(eq(images.userId, userId), eq(images.type, 'processed')),
+    orderBy: (images, { desc }) => [desc(images.createdAt)],
+  });
 
-    if (!userId) {
-        return (
-            <main>
-                <div className='h-full w-full text-2xl'>
-                    <h1>Sign in to view your images</h1>
-                </div>
-            </main>
-        );
-    }
-
-    return (
-        <main className="">
-            <h1 className="text-2xl">Images</h1>
-            <Images />
-        </main>
-    );
+  return (
+    <main className="mx-auto max-w-[1500px] px-4 py-8 md:px-6 md:py-10">
+      <GalleryClient images={images} />
+    </main>
+  );
 }
