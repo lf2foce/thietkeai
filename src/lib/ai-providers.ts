@@ -1,5 +1,8 @@
 import { GoogleGenAI, createPartFromUri } from '@google/genai';
 
+const GEMINI_MODEL_STANDARD = process.env.GEMINI_MODEL_STANDARD || 'models/gemini-3.1-flash-image-preview';
+const GEMINI_MODEL_STYLE_REF = process.env.GEMINI_MODEL_STYLE_REF || 'models/gemini-3.1-flash-image-preview';
+
 export interface GenerationResult {
   status: "succeeded" | "failed" | "processing";
   restoredImage?: string;
@@ -163,7 +166,7 @@ export class GoogleGenAIProvider implements AIProvider {
 
     const generateStartMs = nowMs();
     const response = await this.ai.models.generateContent({
-      model: 'models/gemini-3.1-flash-image-preview',
+      model: GEMINI_MODEL_STANDARD,
       contents: [{
         role: 'user',
         parts: [
@@ -250,7 +253,7 @@ export class GoogleGenAIProvider implements AIProvider {
 
     const generateStartMs = nowMs();
     const response = await this.ai.models.generateContent({
-      model: 'models/gemini-3.1-flash-image-preview',
+      model: GEMINI_MODEL_STYLE_REF,
       contents: [{
         role: 'user',
         parts: [
