@@ -116,9 +116,6 @@ export default function Page() {
     async function generatePhoto(fileUrl: string | string[], theme: themeType | string, room: roomType, origImageId: string | null) {
         try {
             const body: any = { theme, room, roomCondition };
-            if (renderMode === 'style-ref' && customPrompt.trim() !== '') {
-                body.customPrompt = customPrompt.trim();
-            }
             if (Array.isArray(fileUrl)) {
                 body.imageUrls = fileUrl;
             } else {
@@ -291,9 +288,7 @@ export default function Page() {
         setPredictions(initialPredictions);
 
         if (renderMode === 'style-ref') {
-            if (selectedFiles.length > 0) {
-                await generateStyleRefDirect();
-            }
+            await generateStyleRefDirect();
         } else {
             if (imageUrl) {
                 selectedThemes.forEach(theme => generatePhoto(imageUrl, theme, room, originalImageId));

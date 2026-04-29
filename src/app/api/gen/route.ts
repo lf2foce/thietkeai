@@ -9,8 +9,6 @@ import { images } from "@/app/server/db/schema";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-const utapi = new UTApi();
-
 const styleDescriptions: Record<string, Record<string, string>> = {
   Bedroom: {
     Modern: "sleek low-profile bed, minimalist nightstands, recessed lighting, neutral tones with clean geometric lines",
@@ -109,7 +107,9 @@ const roomElectronics: Record<string, string> = {
 };
 
 function buildPrompt(room: string, theme: string, roomCondition: "raw" | "finished"): string {
-  const styleDetails = styleDescriptions[room]?.[theme] || `${theme} style furnishings and decor`;
+  const styleDetails = theme === "Custom Style"
+    ? "the style shown in the reference images"
+    : (styleDescriptions[room]?.[theme] || `${theme} style furnishings and decor`);
   const electronics = roomElectronics[room] || "appropriate appliances and electronics for the room";
 
   if (roomCondition === "raw") {
@@ -168,7 +168,7 @@ async function persistOriginalRoomImage(
     customId: originalImageId,
   });
 
-  const response = await utapi.uploadFiles([uploadFile]);
+  const response = await new UTApi().uploadFiles([uploadFile]);
   const uploadedImage = response[0];
 
   if (!uploadedImage?.data?.ufsUrl) {

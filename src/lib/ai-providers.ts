@@ -309,8 +309,7 @@ export class GoogleGenAIProvider implements AIProvider {
     const imageInputs = Array.isArray(imageInput) ? imageInput : [imageInput];
     const totalStartMs = nowMs();
 
-    // If multiple images are provided, the first one is the target room and the others are style references
-    const finalPrompt = imageInputs.length > 1 
+    const finalPrompt = imageInputs.length > 1
       ? `Original room is the first image. Use the remaining images as style references. ${prompt} Output the result as a photorealistic image.`
       : `${prompt} Output the result as a photorealistic image.`;
 
