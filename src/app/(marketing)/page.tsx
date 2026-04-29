@@ -203,7 +203,7 @@ export default function LandingPage() {
         <ArrowRightIcon className="w-5 h-5" />
       </Link>
     </div>
-    <div className="md:w-3/5 relative">
+    <div className="w-full md:w-3/5 relative">
       <div className="relative aspect-square w-full rounded-2xl overflow-hidden shadow-2xl ring-1 ring-gray-200 bg-white">
         <Image
           src="/images/demo-industrial.png"
