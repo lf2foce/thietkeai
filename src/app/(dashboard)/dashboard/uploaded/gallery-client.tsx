@@ -329,11 +329,11 @@ export default function GalleryClient({ images }: GalleryClientProps) {
 
             {/* Image container: Split view if original exists */}
             <div
-              className="absolute inset-0 flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 pointer-events-auto p-2 md:p-4 pb-24 md:pb-4"
+              className="absolute inset-0 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 pointer-events-auto p-0"
               onClick={e => e.stopPropagation()}
             >
               {activePair.original && (
-                <div className="relative flex-1 h-full w-full flex items-center justify-center bg-black/40 rounded-2xl border border-white/10 overflow-hidden">
+                <div className="relative flex-1 h-full w-full flex items-center justify-center bg-black/40 border border-white/10 overflow-hidden">
                   <span className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-black tracking-widest px-3 py-1.5 rounded-lg z-10 border border-white/10 shadow-lg">
                     Before
                   </span>
@@ -354,7 +354,7 @@ export default function GalleryClient({ images }: GalleryClientProps) {
               )}
 
               <div className={clsx(
-                "relative h-full flex items-center justify-center bg-black/40 rounded-2xl border border-white/10 overflow-hidden",
+                "relative h-full flex items-center justify-center bg-black/40 border border-white/10 overflow-hidden",
                 activePair.original ? "flex-1 w-full" : "w-full max-w-full"
               )}>
                 <span className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-black tracking-widest px-3 py-1.5 rounded-lg z-10 border border-white/10 shadow-lg">
@@ -377,36 +377,41 @@ export default function GalleryClient({ images }: GalleryClientProps) {
             </div>
 
             {/* Consolidated Bottom Bar (Floating Overlay) */}
-            <div className="absolute bottom-0 flex flex-col md:flex-row justify-between items-center gap-4 py-4 md:py-6 px-4 md:px-8 pointer-events-auto z-10 w-full bg-gradient-to-t from-black/80 to-transparent">
+            <div className="absolute bottom-0 flex flex-col gap-4 py-4 md:py-6 px-4 md:px-8 pointer-events-auto z-10 w-full bg-gradient-to-t from-black/80 to-transparent">
 
-              {/* Left: Preview Counter */}
-              <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white flex items-center gap-3 shadow-lg">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Preview</span>
-                <span className="text-sm font-black">{activeIndex! + 1} / {totalPairs}</span>
+              {/* Generated Date (Hidden on mobile, absolute centered on desktop) */}
+              <div className="hidden md:flex justify-center md:absolute md:left-1/2 md:-translate-x-1/2 md:bottom-6">
+                <div className="bg-white/10 backdrop-blur-md px-6 py-2 md:py-3 rounded-full border border-white/10 text-white flex items-center gap-3 shadow-lg">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Generated At</span>
+                  <span className="text-sm font-black">{formatDateLabel(new Date(activePair.createdAt))}</span>
+                </div>
               </div>
 
-              {/* Center: Generated Date (Hidden on very small screens if needed, but flex-col handles it) */}
-              <div className="bg-white/10 backdrop-blur-md px-6 py-2 md:py-3 rounded-full border border-white/10 text-white flex items-center gap-3 shadow-lg">
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Generated At</span>
-                <span className="text-sm font-black">{formatDateLabel(new Date(activePair.createdAt))}</span>
-              </div>
+              {/* Preview and Actions row */}
+              <div className="flex items-center justify-between w-full">
+                {/* Left: Preview Counter */}
+                <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white flex items-center gap-3 shadow-lg">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/50 hidden sm:inline">Preview</span>
+                  <span className="text-sm font-black">{activeIndex! + 1} / {totalPairs}</span>
+                </div>
 
-              {/* Right: Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => downloadImage(activePair.processed.url, `${activePair.processed.name || `render-${activePair.id}`}.jpg`)}
-                  className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-full border border-white/10 text-white transition-all pointer-events-auto shadow-lg"
-                  title="Download"
-                >
-                  <ArrowDownTrayIcon className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={closeModal}
-                  className="bg-white/10 hover:bg-red-500/80 backdrop-blur-md p-3 rounded-full border border-white/10 text-white transition-all pointer-events-auto shadow-lg"
-                  title="Close Preview"
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
+                {/* Right: Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => downloadImage(activePair.processed.url, `${activePair.processed.name || `render-${activePair.id}`}.jpg`)}
+                    className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-3 rounded-full border border-white/10 text-white transition-all pointer-events-auto shadow-lg"
+                    title="Download"
+                  >
+                    <ArrowDownTrayIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={closeModal}
+                    className="bg-white/10 hover:bg-red-500/80 backdrop-blur-md p-3 rounded-full border border-white/10 text-white transition-all pointer-events-auto shadow-lg"
+                    title="Close Preview"
+                  >
+                    <XMarkIcon className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
             </div>
